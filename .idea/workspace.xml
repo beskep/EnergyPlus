@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="9d6f282d-66ab-48f8-b95e-c1632be21b33" name="Default Changelist" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectId" id="1W8QUw11FYFPvW1wl71IuDVQQHN" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../../DefectDetection" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="D:\Python\ep\EnergyPlus" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Python.pcm">
+    <configuration name="energy_plus_case" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="EnergyPlus" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/energy_plus_case.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="pcm" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="EnergyPlus" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/pcm.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="summary_pcm" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="EnergyPlus" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/summary_pcm.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.pcm" />
+        <item itemvalue="Python.summary_pcm" />
+        <item itemvalue="Python.energy_plus_case" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="ServiceViewManager">
+    <option name="viewStates">
+      <list>
+        <serviceView>
+          <treeState>
+            <expand />
+            <select />
+          </treeState>
+        </serviceView>
+      </list>
+    </option>
+  </component>
+  <component name="StructureViewFactory">
+    <option name="ACTIVE_ACTIONS" value=",SHOW_INHERITED" />
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="9d6f282d-66ab-48f8-b95e-c1632be21b33" name="Default Changelist" comment="" />
+      <created>1578528760306</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1578528760306</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="640" y="240" key="#com.intellij.openapi.updateSettings.impl.PluginUpdateInfoDialog" timestamp="1578537760941">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="640" y="240" key="#com.intellij.openapi.updateSettings.impl.PluginUpdateInfoDialog/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1578537760941" />
+    <state width="1723" height="761" key="DebuggerActiveHint" timestamp="1579501358084">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1723" height="761" key="DebuggerActiveHint/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579501358084" />
+    <state x="690" y="218" key="FileChooserDialogImpl" timestamp="1579568481750">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="690" y="218" key="FileChooserDialogImpl/0.0.1920.1040/1920.0.1920.1040/3840.0.960.500@0.0.1920.1040" timestamp="1579568481750" />
+    <state x="690" y="218" key="FileChooserDialogImpl/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579507519185" />
+    <state width="1893" height="329" key="GridCell.Tab.0.bottom" timestamp="1579501379424">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1893" height="329" key="GridCell.Tab.0.bottom/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579501379424" />
+    <state width="1893" height="329" key="GridCell.Tab.0.center" timestamp="1579501379424">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1893" height="329" key="GridCell.Tab.0.center/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579501379424" />
+    <state width="1893" height="329" key="GridCell.Tab.0.left" timestamp="1579501379424">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1893" height="329" key="GridCell.Tab.0.left/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579501379424" />
+    <state width="1893" height="329" key="GridCell.Tab.0.right" timestamp="1579501379424">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1893" height="329" key="GridCell.Tab.0.right/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579501379424" />
+    <state width="1893" height="329" key="GridCell.Tab.1.bottom" timestamp="1579501379424">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1893" height="329" key="GridCell.Tab.1.bottom/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579501379424" />
+    <state width="1893" height="329" key="GridCell.Tab.1.center" timestamp="1579501379424">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1893" height="329" key="GridCell.Tab.1.center/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579501379424" />
+    <state width="1893" height="329" key="GridCell.Tab.1.left" timestamp="1579501379424">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1893" height="329" key="GridCell.Tab.1.left/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579501379424" />
+    <state width="1893" height="329" key="GridCell.Tab.1.right" timestamp="1579501379424">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1893" height="329" key="GridCell.Tab.1.right/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579501379424" />
+    <state x="352" y="72" key="SettingsEditor" timestamp="1578529004924">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="352" y="72" key="SettingsEditor/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1578529004924" />
+    <state width="968" height="528" key="XDebugger.FullValuePopup" timestamp="1578534716881">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="968" height="528" key="XDebugger.FullValuePopup/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1578534716881" />
+    <state x="560" y="296" key="com.intellij.ide.util.TipDialog" timestamp="1579568476358">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="560" y="296" key="com.intellij.ide.util.TipDialog/0.0.1920.1040/1920.0.1920.1040/3840.0.960.500@0.0.1920.1040" timestamp="1579568476358" />
+    <state x="560" y="296" key="com.intellij.ide.util.TipDialog/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1579507514501" />
+    <state width="375" height="117" key="javadoc.popup.new" timestamp="1578530521979">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="375" height="117" key="javadoc.popup.new/0.0.1920.1040/1920.0.1920.1040@0.0.1920.1040" timestamp="1578530521979" />
+  </component>
+  <component name="XDebuggerManager">
+    <watches-manager>
+      <configuration name="PythonConfigurationType">
+        <watch expression="self._pcm" />
+      </configuration>
+    </watches-manager>
+  </component>
+</project>

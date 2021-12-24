@@ -1,0 +1,10 @@
+name: EP
+dependencies:
+    - pandas
+    - tqdm
+    - yapf
+    - toml
+    - isort
+    - pip
+    - pip:
+          - eppy
