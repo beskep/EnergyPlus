@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from energy_plus_case import EnergyPlusCase
-from energy_plus_case import read_bunches
+from ep.ep import EnergyPlusCase
+from ep.ep import read_bunches
 
 
 class CaseSetting:

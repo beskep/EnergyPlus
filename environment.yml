@@ -1,10 +1,19 @@
 name: EP
+channels:
+    - defaults
+    - conda-forge
 dependencies:
-    - pandas
-    - tqdm
-    - yapf
-    - toml
-    - isort
+    - python=3.9
     - pip
     - pip:
           - eppy
+    - pandas
+    - pyyaml
+    - rich
+    - loguru
+    - click
+    - yapf
+    - toml
+    - isort
+    - pylint
+    - mypy

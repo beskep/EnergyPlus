@@ -1,13 +1,13 @@
-from datetime import datetime
 from itertools import product
-import os
+from pathlib import Path
 import re
 
 from eppy.bunch_subclass import EpBunch
+from loguru import logger
 import pandas as pd
-from tqdm import tqdm
 
-from energy_plus_case import EnergyPlusCase
+from ep.ep import EnergyPlusCase
+from ep.utils import track
 
 temperature_pattern = re.compile('temperature_[0-9]+')
 
@@ -20,8 +20,7 @@ class PCMCase(EnergyPlusCase):
                  epw_path=None,
                  output_template=None,
                  pcm_name=None):
-        super(PCMCase, self).__init__(idd_path, idf_path, epw_path,
-                                      output_template)
+        super().__init__(idd_path, idf_path, epw_path, output_template)
 
         mp_obj, mp_name = self._get_obj_and_name('MaterialProperty:PhaseChange')
         if not mp_name:
@@ -65,15 +64,8 @@ class PCMRunner:
                  output_template=None,
                  remove_list=None,
                  epw_dir='./input/pcm_weather'):
-        assert os.path.exists(idd_path)
-        assert os.path.exists(idf_path)
-        assert os.path.exists(material_path)
-        assert os.path.exists(window_path)
-        if output_template is not None:
-            assert os.path.exists(output_template)
-
-        self._idd_path = idd_path
-        self._idf_path = idf_path
+        self._idd_path = Path(idd_path)
+        self._idf_path = Path(idf_path)
         self._material = pd.read_csv(material_path)
         self._window = pd.read_csv(window_path)
         self._pcm_name = pcm_name
@@ -95,17 +87,18 @@ class PCMRunner:
         year_window.sort()
         assert self._year == year_window
 
-        self._epw_dir = epw_dir
+        self._epw_dir = Path(epw_dir).resolve()
         for loc in self._locations:
             self.get_epw_path(loc)
 
     def get_epw_path(self, loc: str):
-        path = os.path.join(self._epw_dir, loc + '.epw')
-        if not os.path.exists(path):
-            raise FileNotFoundError(path)
+        path = self._epw_dir.joinpath(f'{loc}.epw')
+        path.stat()
+
         return path
 
     def get_material_setting(self, year, location):
+        # pylint: disable=unsubscriptable-object
         mat = self._material.loc[(self._material['year'] == year) &
                                  (self._material['location'] == location), :]
         mat = mat.drop(columns=['year', 'location'])
@@ -115,6 +108,7 @@ class PCMRunner:
         return mat_name, mat_thickness
 
     def get_window_u_value(self, year, location):
+        # pylint: disable=unsubscriptable-object
         window = self._window.loc[(self._window['year'] == year) &
                                   (self._window['location'] == location), :]
         assert window.shape[0] == 1
@@ -135,7 +129,7 @@ class PCMRunner:
         if year is None:
             year = self._year.copy()
 
-        output_path = os.path.normpath(os.path.abspath('./result/'))
+        output_path = Path('./result/')
         verbose_ep = 'v' if verbose else 'q'
 
         case = PCMCase(self._idd_path,
@@ -148,7 +142,7 @@ class PCMRunner:
             for x in self._remove_list:
                 case.remove_obj(x)
 
-        for idx in tqdm(range(t_step)):
+        for idx in track(range(t_step)):
             case.change_pcm_temperature(t_change)
 
             for yr, loc, thc in product(year, locations, thickness):
@@ -161,76 +155,21 @@ class PCMRunner:
                 case.change_window_u_value(self.get_window_u_value(yr, loc))
 
                 if t_start is None:
-                    case_name = 'year{}_loc{}_thc{}_dt{:04.1f}'.format(
-                        yr, loc, thc, idx * t_change)
+                    ts = f'dt{idx*t_change:04.1f}'
                 else:
-                    case_name = 'year{}_loc{}_thc{}_t{:04.1f}'.format(
-                        yr, loc, thc, t_start + idx * t_change)
+                    ts = f't{t_start + idx*t_change:04.1f}'
+                case_name = f'year{yr}_loc{loc}_thc{thc}_{ts}'
 
                 if save_idf:
                     case.idf.saveas(
-                        os.path.join(output_path, case_name + '.idf'))
+                        output_path.joinpath(f'{case_name}.idf').as_posix())
 
                 if run:
                     try:
-                        case.idf.run(
-                            weather=self.get_epw_path(loc),
-                            output_directory=output_path,
-                            output_prefix='eplus_{}_'.format(case_name),
-                            readvars=True,
-                            verbose=verbose_ep)
-                    except Exception as e:
-                        with open('./error.txt', 'a') as f:
-                            f.write('{} {}: {}\n'.format(
-                                datetime.now(), case_name, e))
-
-
-if __name__ == '__main__':
-    idf_path = os.path.normpath(
-        os.path.abspath('./idf/pcm_01_simulation(10).idf'))
-    idd_path = os.path.normpath(os.path.abspath('./idd/V8-3-0-Energy+.idd'))
-
-    material_path = './input/material_pcm.csv'
-    window_path = './input/window_pcm.csv'
-
-    out_template_path = os.path.normpath(
-        os.path.abspath('./idf/output_template.idf'))
-    # 제거할 항목
-    remove_list = [
-        'OUTPUT:CONSTRUCTIONS',
-        'OUTPUT:DAYLIGHTFACTORS',
-        'OUTPUT:DEBUGGINGDATA',
-        'OUTPUT:DIAGNOSTICS',
-        'OUTPUT:ENERGYMANAGEMENTSYSTEM',
-        'OUTPUT:ENVIRONMENTALIMPACTFACTORS',
-        'OUTPUT:ILLUMINANCEMAP',
-        'OUTPUT:METER',
-        'OUTPUT:METER:CUMULATIVE',
-        'OUTPUT:METER:CUMULATIVE:METERFILEONLY',
-        'OUTPUT:METER:METERFILEONLY',
-        'OUTPUT:PREPROCESSORMESSAGE',
-        'OUTPUT:SCHEDULES',
-        'OUTPUT:SURFACES:DRAWING',
-        'OUTPUT:SURFACES:LIST',
-        'OUTPUTCONTROL:ILLUMINANCEMAP:STYLE',
-        'OUTPUTCONTROL:REPORTINGTOLERANCES',
-        'OUTPUTCONTROL:SIZING:STYLE',
-        'OUTPUTCONTROL:SURFACECOLORSCHEME',
-        'OUTPUTCONTROL:TABLE:STYLE',
-    ]
-
-    runner = PCMRunner(idd_path,
-                       idf_path,
-                       material_path,
-                       window_path,
-                       output_template=out_template_path,
-                       remove_list=remove_list)
-    runner.run(thickness=(0.01,),
-               t_change=1.0,
-               t_step=1,
-               t_start=None,
-               locations=None,
-               year=None,
-               run=True,
-               save_idf=True,
-               verbose=True)
+                        case.idf.run(weather=self.get_epw_path(loc),
+                                     output_directory=output_path,
+                                     output_prefix=f'eplus_{case_name}_',
+                                     readvars=True,
+                                     verbose=verbose_ep)
+                    except Exception as e:  # pylint: disable=broad-except
+                        logger.exception(e)

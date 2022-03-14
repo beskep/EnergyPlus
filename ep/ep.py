@@ -1,48 +1,88 @@
 import os
+from pathlib import Path
 import re
+from typing import Optional
 
+from eppy.idf_msequence import Idf_MSequence
 from eppy.modeleditor import IDF
+from loguru import logger
+
+from .utils import StrPath
+
+
+def _path(path):
+    path = Path(path).resolve()
+    path.stat()
+
+    return path.as_posix()
 
 
 class EnergyPlusCase:
 
-    def __init__(self, idd_path, idf_path, epw_path=None, output_template=None):
-        if IDF.getiddname() is None:
-            IDF.setiddname(os.path.abspath(idd_path))
-        if epw_path is None:
-            epw_path = ''
-        self._idf = IDF(idfname=os.path.abspath(idf_path),
-                        epw=os.path.abspath(epw_path))
+    def __init__(self,
+                 idd: StrPath,
+                 idf: StrPath,
+                 epw: Optional[StrPath] = None,
+                 output_template: Optional[StrPath] = None):
+        idd = _path(idd)
+        idf = _path(idf)
+        epw = _path(epw) if epw else ''
 
-        self._zone = None
-        self._zone_name = None
+        if IDF.getiddname() is None:
+            IDF.setiddname(idd)
+
+        self._idf = IDF(idfname=idf, epw=epw)
+        self._epw = epw
+
+        self._zone = self._idf.idfobjects['ZONE']
+        self._zone_name = tuple(z.Name for z in self._zone)
         self._material = None
 
-        self._out_template = None if output_template is None else IDF(
-            output_template)
+        self._template = IDF(str(output_template)) if output_template else None
+
+        logger.debug('EP case init')
+        logger.debug('idd: "{}"', idd)
+        logger.debug('idf: "{}"', idf)
+        logger.debug('epw: "{}"', epw)
 
     @property
     def idf(self):
         return self._idf
 
-    def save(self, path):
-        if not path:
-            raise ValueError
+    @property
+    def material(self) -> Idf_MSequence:
+        if self._material is None:
+            self._material = self._idf.idfobjects['Material']
 
+        return self._material
+
+    def save(self, path):
+        path = _path(path)
         self._idf.saveas(path)
+
+    def run(self,
+            output_directory: StrPath,
+            epw: Optional[StrPath] = None,
+            output_prefix='eplus',
+            output_suffix='D',
+            readvars=True,
+            verbose='q'):
+        # TODO doc -> eppy.runner.run_functions.run
+        self.idf.run(weather=(self._epw or _path(epw)),
+                     output_directory=_path(output_directory),
+                     output_prefix=output_prefix,
+                     output_suffix=output_suffix,
+                     readvars=readvars,
+                     verbose=verbose)
 
     def _get_obj_and_name(self, obj):
         obj_list = self._idf.idfobjects[obj]
         name_list = tuple(x.Name for x in obj_list)
+
         return obj_list, name_list
 
-    def _get_zone(self):
-        if self._zone is None:
-            self._zone = self._idf.idfobjects['ZONE']
-            self._zone_name = tuple(z.Name for z in self._zone)
-
     def set_output(self, variable='Output:Variable'):
-        self._idf.idfobjects[variable] = self._out_template.idfobjects[variable]
+        self._idf.idfobjects[variable] = self._template.idfobjects[variable]
 
     def remove_obj(self, variable):
         obj = self._idf.idfobjects[variable]
@@ -60,10 +100,8 @@ class EnergyPlusCase:
         infiltration_rate : float
             [1/h]
         """
-        self._get_zone()
-        # self._get_zone_infiltration()
 
-        pattern = re.compile('\sInfiltration$')
+        pattern = re.compile(r'\sInfiltration$')
         zi, zi_name = self._get_obj_and_name('ZoneInfiltration:DesignFlowRate')
         zi_name = tuple(pattern.sub('', x) for x in zi_name)
 
@@ -80,10 +118,7 @@ class EnergyPlusCase:
         density : float
             [people/m^2]
         """
-        self._get_zone()
-        # self._get_people()
-
-        pattern = re.compile('^People\s')
+        pattern = re.compile(r'^People\s')
         people, people_name = self._get_obj_and_name('PEOPLE')
         people_name = tuple(pattern.sub('', x) for x in people_name)
 
@@ -100,9 +135,7 @@ class EnergyPlusCase:
         power : float
             [W/m^2]
         """
-        self._get_zone()
-
-        pattern = re.compile('\sEquipment\s\d+.*$')
+        pattern = re.compile(r'\sEquipment\s\d+.*$')
         equipment, equipment_name = self._get_obj_and_name('ElectricEquipment')
         equipment_name = tuple(pattern.sub('', x) for x in equipment_name)
 
@@ -135,13 +168,11 @@ class EnergyPlusCase:
             s.obj[first:first + len(schedule)] = schedule
 
     def change_thickness(self, material, thickness):
-        if self._material is None:
-            self._material = self._idf.idfobjects['Material']
+        target = [m for m in self.material if m.Name == material]
+        if len(target) == 0:
+            raise ValueError(f'대상 재료가 존재하지 않음: {material}')
 
-        target = [m for m in self._material if m.Name == material]
-
-        if len(target) != 0:
-            target[0].Thickness = thickness
+        target[0].Thickness = thickness
 
     def change_window_u_value(self,
                               u_value,
@@ -149,7 +180,25 @@ class EnergyPlusCase:
         windows = self._idf.idfobjects[obj]
         for w in windows:
             w.UFactor = u_value
-        return
+
+    def change_year(self, u_value: float, materials: dict):
+        """
+        준공연도 변경
+
+        Parameters
+        ----------
+        u_value : float
+            window u-value
+        materials : dict
+            {material[str]: thickness[float]}
+        """
+        self.change_window_u_value(u_value=u_value)
+
+        for material, thickness in materials.items():
+            self.change_thickness(material=material, thickness=thickness)
+
+        logger.debug('change year: u-value {}, materials {}', u_value,
+                     materials)
 
 
 def _read_bunches_helper(idf: IDF, key, name):

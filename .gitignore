@@ -139,6 +139,12 @@ dmypy.json
 cython_debug/
 
 # Project
+*.idf
+*.idd
+*.epw
+.vscode
+.idea
 idd/
-idf/
+weather/
 input/
+output/
