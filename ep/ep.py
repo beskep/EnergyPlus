@@ -1,8 +1,8 @@
-import os
 from pathlib import Path
 import re
 from typing import Optional
 
+from eppy.bunch_subclass import EpBunch
 from eppy.idf_msequence import Idf_MSequence
 from eppy.modeleditor import IDF
 from loguru import logger
@@ -49,6 +49,14 @@ class EnergyPlusCase:
     def idf(self):
         return self._idf
 
+    def zone(self, name: str) -> EpBunch:
+        try:
+            idx = self._zone_name.index(name)
+        except IndexError as e:
+            raise IndexError(f'Zone name error: {name}') from e
+
+        return self._zone[idx]
+
     @property
     def material(self) -> Idf_MSequence:
         if self._material is None:
@@ -62,13 +70,12 @@ class EnergyPlusCase:
 
     def run(self,
             output_directory: StrPath,
-            epw: Optional[StrPath] = None,
             output_prefix='eplus',
             output_suffix='D',
             readvars=True,
             verbose='q'):
         # TODO doc -> eppy.runner.run_functions.run
-        self.idf.run(weather=(self._epw or _path(epw)),
+        self.idf.run(weather=self._epw,
                      output_directory=_path(output_directory),
                      output_prefix=output_prefix,
                      output_suffix=output_suffix,
@@ -76,10 +83,10 @@ class EnergyPlusCase:
                      verbose=verbose)
 
     def _get_obj_and_name(self, obj):
-        obj_list = self._idf.idfobjects[obj]
-        name_list = tuple(x.Name for x in obj_list)
+        objs: Idf_MSequence = self._idf.idfobjects[obj]
+        names: tuple[str, ...] = tuple(x.Name for x in objs)
 
-        return obj_list, name_list
+        return objs, names
 
     def set_output(self, variable='Output:Variable'):
         self._idf.idfobjects[variable] = self._template.idfobjects[variable]
@@ -100,33 +107,25 @@ class EnergyPlusCase:
         infiltration_rate : float
             [1/h]
         """
+        ir = infiltration_rate / 3600.0  # [1/sec]
+        objs, names = self._get_obj_and_name('ZoneInfiltration:DesignFlowRate')
 
-        pattern = re.compile(r'\sInfiltration$')
-        zi, zi_name = self._get_obj_and_name('ZoneInfiltration:DesignFlowRate')
-        zi_name = tuple(pattern.sub('', x) for x in zi_name)
+        for obj, n in zip(objs, names):
+            volume = self.zone(n.rstrip(' Infiltration')).Volume
+            obj.Design_Flow_Rate = volume * ir
 
-        zi_index = [self._zone_name.index(z) for z in zi_name]
-        zone_volume = tuple(z.Volume for z in self._zone)
-
-        for idx, zone in zip(zi_index, zi):
-            zone.Design_Flow_Rate = zone_volume[idx] * infiltration_rate / 3600.0
-
-    def change_people_density(self, density: float):
+    def change_occupancy(self, density: float):
         """
         Parameters
         ----------
         density : float
             [people/m^2]
         """
-        pattern = re.compile(r'^People\s')
-        people, people_name = self._get_obj_and_name('PEOPLE')
-        people_name = tuple(pattern.sub('', x) for x in people_name)
+        objs, names = self._get_obj_and_name('PEOPLE')
 
-        people_index = [self._zone_name.index(n) for n in people_name]
-
-        zone_area = tuple(z.Floor_Area for z in self._zone)
-        for idx, people in zip(people_index, people):
-            people.Number_of_People = density * zone_area[idx]
+        for obj, n in zip(objs, names):
+            area = self.zone(n.lstrip('People ')).Floor_Area
+            obj.Number_of_People = density * area
 
     def change_equipment_power(self, power: float):
         """
@@ -135,15 +134,27 @@ class EnergyPlusCase:
         power : float
             [W/m^2]
         """
+        # FIXME 'Equipment \d' 형식이 아닐 수 있음
         pattern = re.compile(r'\sEquipment\s\d+.*$')
-        equipment, equipment_name = self._get_obj_and_name('ElectricEquipment')
-        equipment_name = tuple(pattern.sub('', x) for x in equipment_name)
+        objs, names = self._get_obj_and_name('ElectricEquipment')
+        names = tuple(pattern.sub('', x) for x in names)
 
-        equipment_index = [self._zone_name.index(n) for n in equipment_name]
-        zone_area = tuple(z.Floor_Area for z in self._zone)
+        for obj, n in zip(objs, names):
+            area = self.zone(n).Floor_Area
+            obj.Design_Level = power * area
 
-        for idx, eq in zip(equipment_index, equipment):
-            eq.Design_Level = power * zone_area[idx]
+    def change_lighting_level(self, power: float):
+        """
+        Parameters
+        ----------
+        power : float
+            [W/m^2]
+        """
+        objs, names = self._get_obj_and_name('Lights')
+
+        for obj, n in zip(objs, names):
+            area = self.zone(n.rstrip(' General lighting')).Floor_Area
+            obj.Lighting_Level = area * power
 
     def change_schedule(self, schedule: list, metabolic_schedule_id=None):
         """
@@ -204,32 +215,18 @@ class EnergyPlusCase:
 def _read_bunches_helper(idf: IDF, key, name):
     result = idf.idfobjects[key]
     p = re.compile(name)
+
     return [x for x in result if p.match(x.Name)]
 
 
-def read_bunches(idd_path, idf_path, bunch: dict):
-    case = EnergyPlusCase(idd_path, idf_path)
-    result = [_read_bunches_helper(case.idf, *x) for x in bunch.items()]
-    return result
+def read_bunches(idd: StrPath, idf: StrPath, bunch: dict):
+    case = EnergyPlusCase(idd, idf)
+    bunches = [_read_bunches_helper(case.idf, *x) for x in bunch.items()]
+
+    return bunches
 
 
-def save_as_eppy(idd_path, idf_path):
-    case = EnergyPlusCase(idd_path, idf_path)
-    case.save(os.path.splitext(idf_path)[0] + '_eppy.idf')
-
-
-if __name__ == '__main__':
-    idf_path = os.path.abspath('./idf/59_NOT.idf')
-    idd_path = os.path.abspath('./idd/V8-3-0-Energy+.idd')
-    epw_path = os.path.abspath('./input/Hybrid Seoul-hourEPW.epw')
-    out_template_path = os.path.abspath('./idf/output_template.idf')
-
-    idfs = [
-        './idf/01_pcm_Basic_simulation.idf',
-        './idf/01_pcm_simulation(10-25.1).idf',
-        './idf/01_pcm_simulation(20_25).idf',
-        './idf/01_pcm_simulation(20-25.1).idf'
-    ]
-
-    for idf in idfs:
-        save_as_eppy(idd_path, idf)
+def save_as_eppy(idd: StrPath, idf: StrPath):
+    idf = Path(idf)
+    case = EnergyPlusCase(idd, idf)
+    case.save(idf.parent.joinpath(f'{idf.stem}_eppy.idf'))

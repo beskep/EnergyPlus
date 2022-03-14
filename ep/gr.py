@@ -1,16 +1,17 @@
 """서기연 GR 사용량 분석"""
+
 from itertools import product
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
-from eppy.bunch_subclass import EpBunch
+from eppy.runner.run_functions import EnergyPlusRunError
 from loguru import logger
 import pandas as pd
 import yaml
 
-from ep.ep import EnergyPlusCase
-from ep.utils import StrPath
-from ep.utils import track
+from .ep import EnergyPlusCase
+from .utils import StrPath
+from .utils import track
 
 
 def _path(path, root: Path):
@@ -83,29 +84,47 @@ class GRRunner:
     def _run_case(self,
                   case: GRCase,
                   outdir: Path,
-                  year,
+                  year: int,
+                  occupancy: float,
+                  lighting_level: float,
                   save_idf=True,
                   run=True):
+        case_name = f'ep_year{year}_occupancy{occupancy}_lighting{lighting_level}'
+        logger.info('year {} | occupancy {} people/m² | lighting {} W/m²', year,
+                    occupancy, lighting_level)
+
         self.change_year(year=year, case=case)
-        case_name = f'ep_year{year}'
+        case.change_occupancy(density=occupancy)
+        case.change_lighting_level(power=lighting_level)
 
         if save_idf:
             case.idf.saveas(outdir.joinpath(f'{case_name}.idf').as_posix())
 
         if run:
             case.run(output_directory=outdir.as_posix(),
-                     output_prefix=f'{case_name}_',
+                     output_prefix=case_name,
                      output_suffix=self._option['EP']['output_suffix'],
                      verbose=self._option['EP']['verbose'])
 
     def run(self, save_idf=True, run=True):
         case = self.case()
-        years = tuple(self._option['case']['year'])
         outdir: Path = self._paths['output']
 
-        for year in track(years):
-            self._run_case(case=case,
-                           outdir=outdir,
-                           year=year,
-                           save_idf=save_idf,
-                           run=run)
+        year = tuple(self._option['case']['year'])
+        occupancy = tuple(self._option['case']['occupancy'])
+        lighting_level = tuple(self._option['case']['lighting_level'])
+
+        it = track(product(year, occupancy, lighting_level),
+                   total=(len(year) * len(occupancy) * len(lighting_level)))
+        for yr, oc, ll in it:
+            try:
+                self._run_case(case=case,
+                               outdir=outdir,
+                               year=yr,
+                               occupancy=oc,
+                               lighting_level=ll,
+                               save_idf=save_idf,
+                               run=run)
+            except EnergyPlusRunError as e:
+                logger.exception(e)
+                return

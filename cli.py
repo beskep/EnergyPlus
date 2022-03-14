@@ -7,18 +7,21 @@ from ep.utils import set_logger
 _path = click.Path(exists=True, file_okay=True, dir_okay=False)
 
 
-@click.command()
+@click.group()
 @click.option('--debug', '-d', is_flag=True)
+def cli(debug):
+    set_logger(level=(10 if debug else 20))
+
+
+@cli.command()
 @click.option('--run/--no-run',
               default=True,
               show_default=True,
               help='`no-run`이면 디버그를 위해 Energy+ 시뮬레이션 실행하지 않음.')
 @click.argument('case', type=_path)
-def main(debug, run, case):
-    set_logger(level=(10 if debug else 20))
-
+def run(run, case):
     logger.info('run: {}', run)
-    logger.info('case: {}', case)
+    logger.info('case setting: {}', case)
 
     runner = GRRunner(case=case)
     runner.run(save_idf=True, run=run)
@@ -26,4 +29,4 @@ def main(debug, run, case):
 
 if __name__ == '__main__':
     # pylint: disable=no-value-for-parameter
-    main()
+    cli()

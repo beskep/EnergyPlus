@@ -148,3 +148,4 @@ idd/
 weather/
 input/
 output/
+.*.py
