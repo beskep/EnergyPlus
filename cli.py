@@ -1,6 +1,7 @@
 import click
 from loguru import logger
 
+from ep.ep import save_as_eppy
 from ep.gr import GRRunner
 from ep.utils import set_logger
 
@@ -14,6 +15,14 @@ def cli(debug):
 
 
 @cli.command()
+@click.option('--output', '-o')
+@click.argument('idd')
+@click.argument('idf')
+def reformat(output, idd, idf):
+    save_as_eppy(idd=idd, idf=idf, output=output)
+
+
+@cli.command()
 @click.option('--run/--no-run',
               default=True,
               show_default=True,
@@ -21,10 +30,20 @@ def cli(debug):
 @click.argument('case', type=_path)
 def run(run, case):
     logger.info('run: {}', run)
-    logger.info('case setting: {}', case)
+    logger.info('case setting: "{}"', case)
 
     runner = GRRunner(case=case)
-    runner.run(save_idf=True, run=run)
+    runner.run(run=run)
+    runner.summarize()
+
+
+@cli.command()
+@click.argument('case', type=_path)
+def summarize(case):
+    logger.info('case setting: "{}"', case)
+
+    runner = GRRunner(case=case)
+    runner.summarize()
 
 
 if __name__ == '__main__':

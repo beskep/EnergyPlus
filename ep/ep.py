@@ -57,6 +57,9 @@ class EnergyPlusCase:
 
         return self._zone[idx]
 
+    def idf_version(self):
+        return self.idf.idfobjects['version'][0].Version_Identifier.split('.')
+
     @property
     def material(self) -> Idf_MSequence:
         if self._material is None:
@@ -65,7 +68,8 @@ class EnergyPlusCase:
         return self._material
 
     def save(self, path):
-        path = _path(path)
+        path = Path(path).resolve().as_posix()
+        logger.debug('idf save to "{}"', path)
         self._idf.saveas(path)
 
     def run(self,
@@ -226,7 +230,11 @@ def read_bunches(idd: StrPath, idf: StrPath, bunch: dict):
     return bunches
 
 
-def save_as_eppy(idd: StrPath, idf: StrPath):
+def save_as_eppy(idd: StrPath, idf: StrPath, output: Optional[StrPath] = None):
     idf = Path(idf)
     case = EnergyPlusCase(idd, idf)
-    case.save(idf.parent.joinpath(f'{idf.stem}_eppy.idf'))
+
+    if not output:
+        output = idf.parent.joinpath(f'{idf.stem}_eppy.idf')
+
+    case.save(output)

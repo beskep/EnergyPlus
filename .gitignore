@@ -142,10 +142,12 @@ cython_debug/
 *.idf
 *.idd
 *.epw
+*.bat
 .vscode
 .idea
 idd/
 weather/
 input/
 output/
+multi_runs/
 .*.py

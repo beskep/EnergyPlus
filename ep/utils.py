@@ -1,8 +1,11 @@
+from io import StringIO
 from logging import LogRecord
 from os import PathLike
+import re
 from typing import Optional, Union
 
 from loguru import logger
+import pandas as pd
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import track as _track
@@ -79,3 +82,35 @@ def track(sequence,
                   console=console,
                   transient=transient,
                   **kwargs)
+
+
+def read_str_df(txt, **kwargs) -> pd.DataFrame:
+    return pd.read_csv(StringIO(txt), **kwargs)
+
+
+def read_table_csv(path, table: str, melt=True) -> pd.DataFrame:
+    blank = re.compile(r'^(\s|,)*$')
+    lines = []
+    with open(path, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.startswith(table):
+                break
+
+        f.readline()  # 표 제목 뒤 빈 칸 넘김
+
+        for line in f:
+            if blank.match(line):
+                break
+
+            lines.append(line.lstrip(','))
+
+    if not lines:
+        raise ValueError(f'table name error: {table}')
+
+    df = read_str_df(''.join(lines)).reset_index()
+
+    if melt and len(df.columns) > 1:
+        df = pd.melt(df, id_vars='index')
+        df = df.loc[df['value'] != 0, :]
+
+    return df
