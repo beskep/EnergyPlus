@@ -39,6 +39,8 @@ class EnergyPlusCase:
         self._material = None
 
         self._template = IDF(str(output_template)) if output_template else None
+        if self._template:
+            self.set_output()
 
         logger.debug('EP case init')
         logger.debug('idd: "{}"', idd)

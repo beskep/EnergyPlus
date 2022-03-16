@@ -96,21 +96,21 @@ def read_table_csv(path, table: str, melt=True) -> pd.DataFrame:
             if line.startswith(table):
                 break
 
-        f.readline()  # 표 제목 뒤 빈 칸 넘김
+        line = f.readline()  # 표 제목 뒤 빈 칸 넘김
+        assert blank.match(line)
 
         for line in f:
             if blank.match(line):
                 break
-
             lines.append(line.lstrip(','))
 
     if not lines:
-        raise ValueError(f'table name error: {table}')
+        raise ValueError(f'table name not found: {table}')
 
     df = read_str_df(''.join(lines)).reset_index()
 
     if melt and len(df.columns) > 1:
         df = pd.melt(df, id_vars='index')
-        df = df.loc[df['value'] != 0, :]
+        # df = df.loc[df['value'] != 0, :]
 
     return df
