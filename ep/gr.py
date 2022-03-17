@@ -1,5 +1,6 @@
 """서기연 GR 사용량 분석"""
 
+from functools import reduce
 from itertools import product
 from pathlib import Path
 import re
@@ -29,7 +30,20 @@ def _path(path, root: Path):
 
 
 class GRCase(EnergyPlusCase):
-    pass
+
+    def _change_cop(self, target: str, cop: float):
+        if target not in ('Cooling', 'Heating'):
+            raise ValueError(f'target not in ("Cooling", "Heating"): {target}')
+
+        objs, _ = self._get_obj_and_name(f'Coil:{target}:DX:SingleSpeed')
+        for obj in objs:
+            attr = f'Gross_Rated_{target}_COP'
+            assert hasattr(obj, attr)
+            setattr(obj, attr, cop)
+
+    def change_cop(self, cooling: float, heating: float):
+        self._change_cop(target='Cooling', cop=cooling)
+        self._change_cop(target='Heating', cop=heating)
 
 
 def _idf_paths(idf, root: Path):
@@ -60,10 +74,12 @@ def _other_paths(option: dict, root: Path):
 
 
 class GRRunner:
-    PARAM2NAME = '{idf}_year{year}_occupancy{occupancy}_lighting{lighting}'
-    NAME2PARAM = re.compile(r'^(.*?)_year(\d+)_occupancy([\d\.]+)_'
-                            r'lighting([\d\.]+)\..*$')
-    COLS = ('case', 'idf', 'year', 'occupancy', 'lighting_level')
+    PARAM2NAME = ('{idf}_year{year}_occu{occupancy}_'
+                  'lighting{lighting}_CCOP{ccop}_HCOP{hcop}')
+    NAME2PARAM = re.compile(r'^(.*?)_year(\d+)_occu([\d\.]+)_'
+                            r'lighting([\d\.]+)_CCOP([\d\.]+)_HCOP([\d\.]+)')
+    COLS = ('case', 'idf', 'year', 'occupancy', 'lighting_level', 'cooling_cop',
+            'heating_cop')
     UVALUE = 'uvalue'
 
     def __init__(self, case: StrPath) -> None:
@@ -94,24 +110,26 @@ class GRRunner:
 
         return case
 
-    def param2name(self, idf: str, year: int, occupancy: float,
-                   lighting: float):
+    def param2name(self, idf: str, year: int, occupancy: float, lighting: float,
+                   ccop: float, hcop: float):
         return self.PARAM2NAME.format(idf=idf,
                                       year=year,
                                       occupancy=occupancy,
-                                      lighting=lighting)
+                                      lighting=lighting,
+                                      ccop=ccop,
+                                      hcop=hcop)
 
     def name2param(self, name: str):
         match = self.NAME2PARAM.match(name)
         if not match:
             raise ValueError(f'case name eror: {name}')
 
-        return {
-            'idf': match.group(1),
-            'year': int(match.group(2)),
-            'occupancy': float(match.group(3)),
-            'lighting_level': float(match.group(4))
-        }
+        return dict(idf=match.group(1),
+                    year=int(match.group(2)),
+                    occupancy=float(match.group(3)),
+                    lighting_level=float(match.group(4)),
+                    cooling_cop=float(match.group(5)),
+                    heating_cop=float(match.group(6)))
 
     def change_year(self, case: EnergyPlusCase, year: int):
         try:
@@ -125,12 +143,13 @@ class GRRunner:
         return case
 
     def _case_iterator(self):
-        year = tuple(self._option['case']['year'])
-        occupancy = tuple(self._option['case']['occupancy'])
-        lighting = tuple(self._option['case']['lighting_level'])
+        variables = [self._idfs]
+        variables.extend(
+            self._option['case'][x]
+            for x in ['year', 'occupancy', 'lighting_level', 'COP'])
 
-        total = len(self._idfs) * len(year) * len(occupancy) * len(lighting)
-        it = track(product(self._idfs, year, occupancy, lighting), total=total)
+        total = reduce(lambda x, y: x * y, (len(x) for x in variables), 1)
+        it = track(product(*variables), total=total)
 
         return it, total
 
@@ -142,7 +161,7 @@ class GRRunner:
         if total > 1:
             logger.info('total {} cases', total)
 
-        for idf, yr, oc, ll in it:
+        for idf, yr, oc, ll, cop in it:
             if last_idf != idf:
                 case = self.case(idf=idf)
 
@@ -153,7 +172,9 @@ class GRRunner:
             name = self.param2name(idf=idf.stem,
                                    year=yr,
                                    occupancy=oc,
-                                   lighting=ll)
+                                   lighting=ll,
+                                   ccop=cop[0],
+                                   hcop=cop[1])
             case.idf.saveas(outdir.joinpath(f'{name}.idf'))
             version = '-'.join(case.idf_version()[:3])
 

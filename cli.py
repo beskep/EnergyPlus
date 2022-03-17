@@ -34,7 +34,9 @@ def run(run, case):
 
     runner = GRRunner(case=case)
     runner.run(run=run)
-    runner.summarize()
+
+    if run:
+        runner.summarize()
 
 
 @cli.command()

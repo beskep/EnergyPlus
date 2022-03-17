@@ -1,0 +1,59 @@
+# path, idf는 이 파일이 있는 폴더 대비 경로도, 절대 경로도 지정 가능
+path:
+    idd: "idd/V8-3-0-Energy+.idd"
+    epw: "weather/Seoul-hourEPW.epw"
+    material: "input/material.csv"
+    output_template: null
+    output: "output"
+idf: "input/idf" # 폴더 지정하면 해당 폴더 내 idf 모두 인식. idf 파일 하나만 지정도 가능.
+
+# 케이스 설정 변수들. 각 변수 조합을 모두 해석함
+case:
+    year:
+        - 1980
+        - 1984
+        - 1987
+        - 2001
+        - 2008
+        - 2010
+        - 2013
+        - 2016
+        - 2018
+    occupancy: # [people/m^2]
+        - 0.05
+        - 0.10
+    lighting_level: # [W/m^2]
+        - 11.0
+    COP: # [CoolingCOP, HeatingCOP]
+        - [0.1, 0.2]
+        - [0.2, 0.3]
+summary:
+    - "Site to Source Energy Conversion Factors"
+    - "End Uses"
+
+# 이하 기타 설정
+processors: -1 # cpu 코어 개수
+EP:
+    verbose: "q" # "v"로 설정하면 EnergyPlus 결과 콘솔에 출력, "q"면 출력하지 않음
+    readvars: true
+remove_objs:
+    - "OUTPUT:CONSTRUCTIONS"
+    - "OUTPUT:DAYLIGHTFACTORS"
+    - "OUTPUT:DEBUGGINGDATA"
+    - "OUTPUT:DIAGNOSTICS"
+    - "OUTPUT:ENERGYMANAGEMENTSYSTEM"
+    - "OUTPUT:ENVIRONMENTALIMPACTFACTORS"
+    - "OUTPUT:ILLUMINANCEMAP"
+    - "OUTPUT:METER"
+    - "OUTPUT:METER:CUMULATIVE"
+    - "OUTPUT:METER:CUMULATIVE:METERFILEONLY"
+    - "OUTPUT:METER:METERFILEONLY"
+    - "OUTPUT:PREPROCESSORMESSAGE"
+    - "OUTPUT:SCHEDULES"
+    - "OUTPUT:SURFACES:DRAWING"
+    - "OUTPUT:SURFACES:LIST"
+    - "OUTPUTCONTROL:ILLUMINANCEMAP:STYLE"
+    - "OUTPUTCONTROL:REPORTINGTOLERANCES"
+    - "OUTPUTCONTROL:SIZING:STYLE"
+    - "OUTPUTCONTROL:SURFACECOLORSCHEME"
+    - "OUTPUTCONTROL:TABLE:STYLE"
