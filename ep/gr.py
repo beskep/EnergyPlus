@@ -1,5 +1,6 @@
 """서기연 GR 사용량 분석"""
 
+import dataclasses as dc
 from functools import reduce
 from itertools import product
 from pathlib import Path
@@ -29,23 +30,6 @@ def _path(path, root: Path):
     return path
 
 
-class GRCase(EnergyPlusCase):
-
-    def _change_cop(self, target: str, cop: float):
-        if target not in ('Cooling', 'Heating'):
-            raise ValueError(f'target not in ("Cooling", "Heating"): {target}')
-
-        objs, _ = self._get_obj_and_name(f'Coil:{target}:DX:SingleSpeed')
-        for obj in objs:
-            attr = f'Gross_Rated_{target}_COP'
-            assert hasattr(obj, attr)
-            setattr(obj, attr, cop)
-
-    def change_cop(self, cooling: float, heating: float):
-        self._change_cop(target='Cooling', cop=cooling)
-        self._change_cop(target='Heating', cop=heating)
-
-
 def _idf_paths(idf, root: Path):
     idf = _path(idf, root=root)
 
@@ -73,13 +57,114 @@ def _other_paths(option: dict, root: Path):
     return paths
 
 
+def _schedule(text: str) -> list:
+    return [x.strip() for x in text.rstrip(';').split(',')]
+
+
+class GRCase(EnergyPlusCase):
+
+    def _change_cop(self, target: str, cop: float):
+        # [deprecated] Coil:Cooling:DX:SingleSpeed 대신
+        # AirConditioner:VariableRefrigerantFlow 사용
+        if target not in ('Cooling', 'Heating'):
+            raise ValueError(f'target not in ("Cooling", "Heating"): {target}')
+
+        objs = self._get_objs(f'Coil:{target}:DX:SingleSpeed')
+        for obj in objs:
+            attr = f'Gross_Rated_{target}_COP'
+            assert hasattr(obj, attr)
+            setattr(obj, attr, cop)
+
+    def change_cop(self, cooling: float, heating: float):
+        objs = self._get_objs('AirConditioner:VariableRefrigerantFlow')
+        assert len(objs) == 1
+
+        obj = objs[0]
+        obj.Gross_Rated_Cooling_COP = cooling
+        obj.Gross_Rated_Heating_COP = heating
+
+    def change_water_heater_effectiveness(self, value: float):
+        objs = self._get_objs('WaterHeater:Mixed')
+        for obj in objs:
+            obj.Use_Side_Effectiveness = value
+
+    def _temperature_schedule(self, name: str, type_limits='Temperature'):
+        return (x for x in self._get_objs('Schedule:Compact')
+                if x.obj[2] == type_limits and name in x.obj[1])
+
+    def _change_temperature_schedule(self, name, schedule: list):
+        objs = self._temperature_schedule(name=name)
+        for obj in objs:
+            obj.obj = obj.obj[:3] + schedule
+
+    def change_temperature_schedule(self, cooling, heating):
+        self._change_temperature_schedule(name='Cooling Setpoint',
+                                          schedule=cooling)
+        self._change_temperature_schedule(name='Heating Setpoint',
+                                          schedule=heating)
+
+
+@dc.dataclass
+class _Condition:
+    idf: Path
+    year: int
+    occupancy: float
+    lighting_level: float
+    water_heater_effectiveness: float
+    cop: list
+    schedule: dict  # keys: name, cooling, heating
+
+
+@dc.dataclass
+class _Conditions:
+    idf: list
+    year: list
+    occupancy: list
+    lighting_level: list
+    water_heater_effectiveness: list
+    cop: list
+    schedule: list
+    _total: int = dc.field(init=False)
+
+    @property
+    def total(self):
+        return self._total
+
+    def _variables(self):
+        return (getattr(self, x.name)
+                for x in dc.fields(self)
+                if x.name != '_total')
+
+    @staticmethod
+    def _prep_schedule(schedule: dict):
+        schedule['cooling'] = _schedule(schedule['cooling'])
+        schedule['heating'] = _schedule(schedule['heating'])
+
+        return schedule
+
+    def __post_init__(self):
+        lengths = (len(x) for x in self._variables())
+        self._total = reduce(lambda x, y: x * y, lengths, 1)
+
+        self.schedule = [self._prep_schedule(x) for x in self.schedule]
+
+    def iter(self):
+        for x in track(product(*self._variables()), total=self.total):
+            yield _Condition(*x)
+
+
 class GRRunner:
-    PARAM2NAME = ('{idf}_year{year}_occu{occupancy}_'
-                  'lighting{lighting}_CCOP{ccop}_HCOP{hcop}')
-    NAME2PARAM = re.compile(r'^(.*?)_year(\d+)_occu([\d\.]+)_'
-                            r'lighting([\d\.]+)_CCOP([\d\.]+)_HCOP([\d\.]+)')
-    COLS = ('case', 'idf', 'year', 'occupancy', 'lighting_level', 'cooling_cop',
-            'heating_cop')
+    PARAM2NAME = ('{idf}_yr{year}_oc{occupancy}_'
+                  'LL{lighting_level}_WHE{water_heater_effectiveness}_'
+                  'CCOP{ccop}_HCOP{hcop}_sch-{schedule}')
+    NAME2PARAM = re.compile(r'^(.*?)_yr(\d+)_oc([\d\.]+)_'
+                            r'LL([\d\.]+)_WHE([\d\.]+)_'
+                            r'CCOP([\d\.]+)_HCOP([\d\.]+)_sch-(\w+)')
+
+    COLUMNS = ('case', 'idf', 'year', 'occupancy', 'lighting_level',
+               'water_heater_effectiveness', 'cooling_cop', 'heating_cop',
+               'schedule')
+
     UVALUE = 'uvalue'
 
     def __init__(self, case: StrPath) -> None:
@@ -110,26 +195,27 @@ class GRRunner:
 
         return case
 
-    def param2name(self, idf: str, year: int, occupancy: float, lighting: float,
-                   ccop: float, hcop: float):
-        return self.PARAM2NAME.format(idf=idf,
-                                      year=year,
-                                      occupancy=occupancy,
-                                      lighting=lighting,
-                                      ccop=ccop,
-                                      hcop=hcop)
+    def param2name(self, condition: _Condition):
+        con = dc.asdict(condition)
+        con.update({
+            'idf': condition.idf.stem,
+            'ccop': condition.cop[0],
+            'hcop': condition.cop[1],
+            'schedule': condition.schedule['name']
+        })
+        con.pop('cop')
+
+        return self.PARAM2NAME.format_map(con)
 
     def name2param(self, name: str):
         match = self.NAME2PARAM.match(name)
         if not match:
             raise ValueError(f'case name eror: {name}')
 
-        return dict(idf=match.group(1),
-                    year=int(match.group(2)),
-                    occupancy=float(match.group(3)),
-                    lighting_level=float(match.group(4)),
-                    cooling_cop=float(match.group(5)),
-                    heating_cop=float(match.group(6)))
+        groups = match.groups()
+        params = {x: groups[i] for i, x in enumerate(self.COLUMNS[1:])}
+
+        return params
 
     def change_year(self, case: EnergyPlusCase, year: int):
         try:
@@ -142,50 +228,46 @@ class GRRunner:
 
         return case
 
-    def _case_iterator(self):
-        variables = [self._idfs]
-        variables.extend(
-            self._option['case'][x]
-            for x in ['year', 'occupancy', 'lighting_level', 'COP'])
+    def _conditions(self):
+        variables = self._option['case']
+        variables['idf'] = self._idfs
 
-        total = reduce(lambda x, y: x * y, (len(x) for x in variables), 1)
-        it = track(product(*variables), total=total)
-
-        return it, total
+        return _Conditions(**variables)
 
     def _idf_iterator(self):
         last_idf = case = None
         outdir: Path = self._paths['output']
 
-        it, total = self._case_iterator()
-        if total > 1:
-            logger.info('total {} cases', total)
+        option = dict(output_directory=outdir.as_posix(),
+                      output_suffix='D',
+                      verbose=self._option['EP']['verbose'],
+                      readvars=self._option['EP']['readvars'])
 
-        for idf, yr, oc, ll, cop in it:
-            if last_idf != idf:
-                case = self.case(idf=idf)
+        conditions = self._conditions()
+        if conditions.total > 1:
+            logger.info('total {} cases', conditions.total)
 
-            self.change_year(case=case, year=yr)
-            case.change_occupancy(oc)
-            case.change_lighting_level(ll)
+        for con in conditions.iter():
+            if last_idf != con.idf:
+                case = self.case(idf=con.idf)
 
-            name = self.param2name(idf=idf.stem,
-                                   year=yr,
-                                   occupancy=oc,
-                                   lighting=ll,
-                                   ccop=cop[0],
-                                   hcop=cop[1])
+            self.change_year(case=case, year=con.year)
+            case.change_occupancy(con.occupancy)
+            case.change_lighting_level(con.lighting_level)
+            case.change_water_heater_effectiveness(
+                con.water_heater_effectiveness)
+            case.change_temperature_schedule(cooling=con.schedule['cooling'],
+                                             heating=con.schedule['heating'])
+
+            name = self.param2name(con)
             case.idf.saveas(outdir.joinpath(f'{name}.idf'))
             version = '-'.join(case.idf_version()[:3])
 
-            option = dict(output_directory=outdir.as_posix(),
-                          output_prefix=name,
-                          output_suffix='D',
-                          verbose=self._option['EP']['verbose'],
-                          readvars=self._option['EP']['readvars'],
-                          ep_version=version)
+            opt = option.copy()
+            opt['output_prefix'] = name
+            opt['ep_version'] = version
 
-            yield case.idf, option
+            yield case.idf, opt
 
     def run(self, run=True):
         if run:
@@ -224,8 +306,8 @@ class GRRunner:
             (self._read_table_csv(x, table=table) for x in csvs))
 
         # 열 순서 변경
-        summ = summ[list(self.COLS) +
-                    [x for x in summ.columns if x not in self.COLS]]
+        summ = summ[list(self.COLUMNS) +
+                    [x for x in summ.columns if x not in self.COLUMNS]]
 
         # 저장
         path = self._paths['output'].joinpath(f'[summary] {table}.csv')

@@ -24,9 +24,50 @@ case:
         - 0.10
     lighting_level: # [W/m^2]
         - 11.0
-    COP: # [CoolingCOP, HeatingCOP]
+    water_heater_effectiveness:
+        - 0.2
+    cop: # [CoolingCOP, HeatingCOP]
         - [0.1, 0.2]
         - [0.2, 0.3]
+    schedule:
+        - name: sch1 # 스케쥴 이름엔 알파벳, 숫자만 입력
+          cooling: "Through: 31 Dec,
+              For: Weekdays SummerDesignDay WinterDesignDay,
+              Until: 06:00,  30,
+              Until: 18:00,  24,
+              Until: 24:00,  30,
+              For: Weekends,
+              Until: 24:00,  30,
+              For: AllOtherDays,
+              Until: 24:00,  30;"
+          heating: "Through: 31 Dec,
+              For: Weekdays SummerDesignDay WinterDesignDay,
+              Until: 06:00,  12,
+              Until: 18:00,  18,
+              Until: 24:00,  12,
+              For: Weekends,
+              Until: 24:00,  12,
+              For: AllOtherDays,
+              Until: 24:00,  12;"
+        - name: sch2
+          cooling: "Through: 31 Dec,
+              For: Weekdays SummerDesignDay WinterDesignDay,
+              Until: 06:00,  30,
+              Until: 18:00,  24,
+              Until: 24:00,  30,
+              For: Weekends,
+              Until: 24:00,  30,
+              For: AllOtherDays,
+              Until: 24:00,  30;"
+          heating: "Through: 31 Dec,
+              For: Weekdays SummerDesignDay WinterDesignDay,
+              Until: 06:00,  12,
+              Until: 18:00,  18,
+              Until: 24:00,  12,
+              For: Weekends,
+              Until: 24:00,  12,
+              For: AllOtherDays,
+              Until: 24:00,  12;"
 summary:
     - "Site to Source Energy Conversion Factors"
     - "End Uses"

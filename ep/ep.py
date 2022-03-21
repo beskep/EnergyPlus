@@ -88,8 +88,11 @@ class EnergyPlusCase:
                      readvars=readvars,
                      verbose=verbose)
 
+    def _get_objs(self, obj) -> Idf_MSequence:
+        return self._idf.idfobjects[obj]
+
     def _get_obj_and_name(self, obj):
-        objs: Idf_MSequence = self._idf.idfobjects[obj]
+        objs = self._get_objs(obj)
         names: tuple[str, ...] = tuple(x.Name for x in objs)
 
         return objs, names
