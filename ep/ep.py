@@ -42,10 +42,7 @@ class EnergyPlusCase:
         if self._template:
             self.set_output()
 
-        logger.debug('EP case init')
-        logger.debug('idd: "{}"', idd)
-        logger.debug('idf: "{}"', idf)
-        logger.debug('epw: "{}"', epw)
+        logger.debug('EP case init {}', {'idd': idd, 'idf': idf, 'epw': epw})
 
     @property
     def idf(self):
@@ -89,7 +86,11 @@ class EnergyPlusCase:
                      verbose=verbose)
 
     def _get_objs(self, obj) -> Idf_MSequence:
-        return self._idf.idfobjects[obj]
+        objs: Idf_MSequence = self._idf.idfobjects[obj]
+        if not objs.list1:
+            raise ValueError(f'"{obj}" not found')
+
+        return objs
 
     def _get_obj_and_name(self, obj):
         objs = self._get_objs(obj)
@@ -216,9 +217,6 @@ class EnergyPlusCase:
 
         for material, thickness in materials.items():
             self.change_thickness(material=material, thickness=thickness)
-
-        logger.debug('change year: u-value {}, materials {}', u_value,
-                     materials)
 
 
 def _read_bunches_helper(idf: IDF, key, name):

@@ -83,6 +83,19 @@ class GRCase(EnergyPlusCase):
         obj.Gross_Rated_Cooling_COP = cooling
         obj.Gross_Rated_Heating_COP = heating
 
+    def change_fcu(self, cooling: float, heating: float):
+        # cooling
+        chillers = self._get_objs('Chiller:Electric:EIR')
+        assert len(chillers) == 1
+        chiller = chillers[0]
+        chiller.Reference_COP = cooling
+
+        # heating
+        boilers = self._get_objs('Boiler:HotWater')
+        assert len(boilers) == 1
+        boilder = boilers[0]
+        boilder.Nominal_Thermal_Efficiency = heating
+
     def change_water_heater_effectiveness(self, value: float):
         objs = self._get_objs('WaterHeater:Mixed')
         for obj in objs:
@@ -112,6 +125,7 @@ class _Condition:
     lighting_level: float
     water_heater_effectiveness: float
     cop: list
+    fcu: list
     schedule: dict  # keys: name, cooling, heating
 
 
@@ -123,7 +137,9 @@ class _Conditions:
     lighting_level: list
     water_heater_effectiveness: list
     cop: list
+    fcu: list
     schedule: list
+
     _total: int = dc.field(init=False)
 
     @property
@@ -156,14 +172,15 @@ class _Conditions:
 class GRRunner:
     PARAM2NAME = ('{idf}_yr{year}_oc{occupancy}_'
                   'LL{lighting_level}_WHE{water_heater_effectiveness}_'
-                  'CCOP{ccop}_HCOP{hcop}_sch-{schedule}')
+                  'COP{cop}_FCU{fcu}_sch-{schedule}')
     NAME2PARAM = re.compile(r'^(.*?)_yr(\d+)_oc([\d\.]+)_'
                             r'LL([\d\.]+)_WHE([\d\.]+)_'
-                            r'CCOP([\d\.]+)_HCOP([\d\.]+)_sch-(\w+)')
+                            r'COP\[([\d\.]+),([\d\.]+)\]_'
+                            r'FCU\[([\d\.]+),([\d\.]+)\]_sch-(\w+)')
 
     COLUMNS = ('case', 'idf', 'year', 'occupancy', 'lighting_level',
                'water_heater_effectiveness', 'cooling_cop', 'heating_cop',
-               'schedule')
+               'cooling_fcu', 'heating_fcu', 'schedule')
 
     UVALUE = 'uvalue'
 
@@ -195,15 +212,21 @@ class GRRunner:
 
         return case
 
+    @staticmethod
+    def _list_param_name(param):
+        if not param:
+            return '[0,0]'
+
+        return str(param).replace(' ', '')
+
     def param2name(self, condition: _Condition):
         con = dc.asdict(condition)
         con.update({
             'idf': condition.idf.stem,
-            'ccop': condition.cop[0],
-            'hcop': condition.cop[1],
+            'cop': self._list_param_name(condition.cop),
+            'fcu': self._list_param_name(condition.fcu),
             'schedule': condition.schedule['name']
         })
-        con.pop('cop')
 
         return self.PARAM2NAME.format_map(con)
 
@@ -232,10 +255,13 @@ class GRRunner:
         variables = self._option['case']
         variables['idf'] = self._idfs
 
+        for key in variables:
+            if not variables[key]:
+                variables[key] = [None]
+
         return _Conditions(**variables)
 
     def _idf_iterator(self):
-        last_idf = case = None
         outdir: Path = self._paths['output']
 
         option = dict(output_directory=outdir.as_posix(),
@@ -248,16 +274,33 @@ class GRRunner:
             logger.info('total {} cases', conditions.total)
 
         for con in conditions.iter():
-            if last_idf != con.idf:
-                case = self.case(idf=con.idf)
+            logger.debug(con)
 
-            self.change_year(case=case, year=con.year)
-            case.change_occupancy(con.occupancy)
-            case.change_lighting_level(con.lighting_level)
-            case.change_water_heater_effectiveness(
-                con.water_heater_effectiveness)
-            case.change_temperature_schedule(cooling=con.schedule['cooling'],
-                                             heating=con.schedule['heating'])
+            case = self.case(idf=con.idf)
+
+            if con.year:
+                self.change_year(case=case, year=con.year)
+
+            if con.occupancy:
+                case.change_occupancy(con.occupancy)
+
+            if con.lighting_level:
+                case.change_lighting_level(con.lighting_level)
+
+            if con.water_heater_effectiveness:
+                case.change_water_heater_effectiveness(
+                    con.water_heater_effectiveness)
+
+            if con.cop:
+                case.change_cop(cooling=con.cop[0], heating=con.cop[1])
+
+            if con.fcu:
+                case.change_fcu(cooling=con.fcu[0], heating=con.fcu[1])
+
+            if con.schedule:
+                case.change_temperature_schedule(
+                    cooling=con.schedule['cooling'],
+                    heating=con.schedule['heating'])
 
             name = self.param2name(con)
             case.idf.saveas(outdir.joinpath(f'{name}.idf'))
