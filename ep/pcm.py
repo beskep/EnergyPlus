@@ -45,11 +45,11 @@ class PCMCase(EnergyPlusCase):
         self._pcm_material: EpBunch = materials.list1[names.index(
             self._pcm_name)]
 
-    def change_pcm_temperature(self, temperature_change):
+    def set_pcm_temperature(self, temperature_change):
         for idx in self._pcm_temperature_index:
             self._pcm.obj[idx] += temperature_change
 
-    def change_pcm_thickness(self, thickness):
+    def set_pcm_thickness(self, thickness):
         self._pcm_material.Thickness = thickness
 
 
@@ -143,16 +143,16 @@ class PCMRunner:
                 case.remove_obj(x)
 
         for idx in track(range(t_step)):
-            case.change_pcm_temperature(t_change)
+            case.set_pcm_temperature(t_change)
 
             for yr, loc, thc in product(year, locations, thickness):
-                case.change_pcm_thickness(thc)
+                case.set_pcm_thickness(thc)
 
                 mat_name, mat_thickness = self.get_material_setting(yr, loc)
                 for mn, mt in zip(mat_name, mat_thickness):
-                    case.change_thickness(mn, mt)
+                    case.set_material_thickness(mn, mt)
 
-                case.change_window_u_value(self.get_window_u_value(yr, loc))
+                case.set_window_u_value(self.get_window_u_value(yr, loc))
 
                 if t_start is None:
                     ts = f'dt{idx*t_change:04.1f}'

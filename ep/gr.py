@@ -63,7 +63,7 @@ def _schedule(text: str) -> list:
 
 class GRCase(EnergyPlusCase):
 
-    def _change_cop(self, target: str, cop: float):
+    def _set_cop(self, target: str, cop: float):
         # [deprecated] Coil:Cooling:DX:SingleSpeed 대신
         # AirConditioner:VariableRefrigerantFlow 사용
         if target not in ('Cooling', 'Heating'):
@@ -75,7 +75,7 @@ class GRCase(EnergyPlusCase):
             assert hasattr(obj, attr)
             setattr(obj, attr, cop)
 
-    def change_cop(self, cooling: float, heating: float):
+    def set_cop(self, cooling: float, heating: float):
         objs = self._get_objs('AirConditioner:VariableRefrigerantFlow')
         assert len(objs) == 1
 
@@ -83,7 +83,7 @@ class GRCase(EnergyPlusCase):
         obj.Gross_Rated_Cooling_COP = cooling
         obj.Gross_Rated_Heating_COP = heating
 
-    def change_fcu(self, cooling: float, heating: float):
+    def set_fcu(self, cooling: float, heating: float):
         # cooling
         chillers = self._get_objs('Chiller:Electric:EIR')
         assert len(chillers) == 1
@@ -96,7 +96,7 @@ class GRCase(EnergyPlusCase):
         boilder = boilers[0]
         boilder.Nominal_Thermal_Efficiency = heating
 
-    def change_water_heater_effectiveness(self, value: float):
+    def set_water_heater_effectiveness(self, value: float):
         objs = self._get_objs('WaterHeater:Mixed')
         for obj in objs:
             obj.Use_Side_Effectiveness = value
@@ -105,16 +105,16 @@ class GRCase(EnergyPlusCase):
         return (x for x in self._get_objs('Schedule:Compact')
                 if x.obj[2] == type_limits and name in x.obj[1])
 
-    def _change_temperature_schedule(self, name, schedule: list):
+    def _set_temperature_schedule(self, name, schedule: list):
         objs = self._temperature_schedule(name=name)
         for obj in objs:
             obj.obj = obj.obj[:3] + schedule
 
-    def change_temperature_schedule(self, cooling, heating):
-        self._change_temperature_schedule(name='Cooling Setpoint',
-                                          schedule=cooling)
-        self._change_temperature_schedule(name='Heating Setpoint',
-                                          schedule=heating)
+    def set_temperature_schedule(self, cooling, heating):
+        self._set_temperature_schedule(name='Cooling Setpoint',
+                                       schedule=cooling)
+        self._set_temperature_schedule(name='Heating Setpoint',
+                                       schedule=heating)
 
 
 @dc.dataclass
@@ -246,8 +246,8 @@ class GRRunner:
         except KeyError as e:
             raise ValueError(f'연도 설정 오류: {year}') from e
 
-        case.change_year(materials={x: row[x] for x in self._material_names},
-                         u_value=row[self.UVALUE])
+        case.set_year(materials={x: row[x] for x in self._material_names},
+                      u_value=row[self.UVALUE])
 
         return case
 
@@ -282,25 +282,24 @@ class GRRunner:
                 self.change_year(case=case, year=con.year)
 
             if con.occupancy:
-                case.change_occupancy(con.occupancy)
+                case.set_occupancy(con.occupancy)
 
             if con.lighting_level:
-                case.change_lighting_level(con.lighting_level)
+                case.set_lighting_level(con.lighting_level)
 
             if con.water_heater_effectiveness:
-                case.change_water_heater_effectiveness(
+                case.set_water_heater_effectiveness(
                     con.water_heater_effectiveness)
 
             if con.cop:
-                case.change_cop(cooling=con.cop[0], heating=con.cop[1])
+                case.set_cop(cooling=con.cop[0], heating=con.cop[1])
 
             if con.fcu:
-                case.change_fcu(cooling=con.fcu[0], heating=con.fcu[1])
+                case.set_fcu(cooling=con.fcu[0], heating=con.fcu[1])
 
             if con.schedule:
-                case.change_temperature_schedule(
-                    cooling=con.schedule['cooling'],
-                    heating=con.schedule['heating'])
+                case.set_temperature_schedule(cooling=con.schedule['cooling'],
+                                              heating=con.schedule['heating'])
 
             name = self.param2name(con)
             case.idf.saveas(outdir.joinpath(f'{name}.idf'))
@@ -324,8 +323,10 @@ class GRRunner:
             logger.info('시뮬레이션 완료')
         else:
             logger.info('변경된 idf 파일을 저장하고 시뮬레이션은 시행하지 않습니다.')
+
             for _ in self._idf_iterator():
                 pass
+
             logger.info('저장 완료')
 
     def _read_table_csv(self, path: Path, table: str):

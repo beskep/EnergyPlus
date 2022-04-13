@@ -69,11 +69,11 @@ def run_energy_plus(idd_path: str,
 
     case_iter = case_setting.get_case_iterator()
     for year, loc, azimuth, people, schedule_percent in tqdm(case_iter):
-        case.change_north_axis(azimuth)
+        case.set_north_axis(azimuth)
         case.change_people_density(heat_metabolic[people])
-        case.change_equipment_power(heat_equipment[people])
-        case.change_schedule(schedule[schedule_percent])
-        case.change_infiltration(infiltration[year])
+        case.set_equipment_power(heat_equipment[people])
+        case.set_schedule(schedule[schedule_percent])
+        case.set_infiltration(infiltration[year])
 
         # 재료, 창문 u-value 변경
         df_material = case_setting.get_material_setting(year, loc)
@@ -81,9 +81,9 @@ def run_energy_plus(idd_path: str,
             x for x in df_material.columns
             if x not in ['year', 'location', 'window']
         ]
-        case.change_window_u_value(df_material.loc[0, 'window'])
+        case.set_window_u_value(df_material.loc[0, 'window'])
         for m in materials_list:
-            case.change_thickness(m, df_material.loc[0, m])
+            case.set_material_thickness(m, df_material.loc[0, m])
 
         # 저장 파일 이름
         case_name = 'year{}_loc_{}_azi{}_people{}_sche{:.2f}'.format(

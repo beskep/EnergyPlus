@@ -106,11 +106,11 @@ class EnergyPlusCase:
         if len(obj):
             self._idf.removeidfobject(obj[0])
 
-    def change_north_axis(self, north_axis):
+    def set_north_axis(self, north_axis):
         building = self._idf.idfobjects['BUILDING'][0]
         building.North_Axis = north_axis
 
-    def change_infiltration(self, infiltration_rate: float):
+    def set_infiltration(self, infiltration_rate: float):
         """
         Parameters
         ----------
@@ -124,7 +124,7 @@ class EnergyPlusCase:
             volume = self.zone(n.rstrip(' Infiltration')).Volume
             obj.Design_Flow_Rate = volume * ir
 
-    def change_occupancy(self, density: float):
+    def set_occupancy(self, density: float):
         """
         Parameters
         ----------
@@ -137,7 +137,7 @@ class EnergyPlusCase:
             area = self.zone(n.lstrip('People ')).Floor_Area
             obj.Number_of_People = density * area
 
-    def change_equipment_power(self, power: float):
+    def set_equipment_power(self, power: float):
         """
         Parameters
         ----------
@@ -153,7 +153,7 @@ class EnergyPlusCase:
             area = self.zone(n).Floor_Area
             obj.Design_Level = power * area
 
-    def change_lighting_level(self, power: float):
+    def set_lighting_level(self, power: float):
         """
         Parameters
         ----------
@@ -166,7 +166,7 @@ class EnergyPlusCase:
             area = self.zone(n.rstrip(' General lighting')).Floor_Area
             obj.Lighting_Level = area * power
 
-    def change_schedule(self, schedule: list, metabolic_schedule_id=None):
+    def set_schedule(self, schedule: list, metabolic_schedule_id=None):
         """
         범용적으로 못 씀
         현재 lighting/metabolic 두 스케줄만 있을 때
@@ -188,21 +188,21 @@ class EnergyPlusCase:
             first = s.objls.index('Value_1')
             s.obj[first:first + len(schedule)] = schedule
 
-    def change_thickness(self, material, thickness):
+    def set_material_thickness(self, material, thickness):
         target = [m for m in self.material if m.Name == material]
         if len(target) == 0:
             raise ValueError(f'대상 재료가 존재하지 않음: {material}')
 
         target[0].Thickness = thickness
 
-    def change_window_u_value(self,
-                              u_value,
-                              obj='WindowMaterial:SimpleGlazingSystem'):
+    def set_window_u_value(self,
+                           u_value,
+                           obj='WindowMaterial:SimpleGlazingSystem'):
         windows = self._idf.idfobjects[obj]
         for w in windows:
             w.UFactor = u_value
 
-    def change_year(self, u_value: float, materials: dict):
+    def set_year(self, u_value: float, materials: dict):
         """
         준공연도 변경
 
@@ -213,10 +213,10 @@ class EnergyPlusCase:
         materials : dict
             {material[str]: thickness[float]}
         """
-        self.change_window_u_value(u_value=u_value)
+        self.set_window_u_value(u_value=u_value)
 
         for material, thickness in materials.items():
-            self.change_thickness(material=material, thickness=thickness)
+            self.set_material_thickness(material=material, thickness=thickness)
 
 
 def _read_bunches_helper(idf: IDF, key, name):
