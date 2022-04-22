@@ -167,12 +167,26 @@ class _NumericalCondition:
     shgc: float
     lighting_level: float
     occupancy: float
+    equipment_power: float
+    cooling_temperature: float
+    heating_temperature: float
     material_thickness: dict
+    ct0: dict  # original conditioning temperature
+
+    def __post_init__(self):
+        self.cooling_temperature = np.round(self.cooling_temperature, 1)
+        self.heating_temperature = np.round(self.heating_temperature, 1)
 
     def set_case(self, case: GRCase):
         case.set_simple_glazing_system(shgc=self.shgc)
         case.set_occupancy(self.occupancy)
         case.set_lighting_level(self.lighting_level)
+        case.set_equipment_power(self.equipment_power)
+
+        case.set_conditioning_temperature(t0=self.ct0['cooling'],
+                                          t1=self.cooling_temperature)
+        case.set_conditioning_temperature(t0=self.ct0['heating'],
+                                          t1=self.heating_temperature)
 
         for m, t in self.material_thickness.items():
             case.set_material_thickness(material=m, thickness=t)
@@ -180,6 +194,7 @@ class _NumericalCondition:
     def asdict(self):
         d = dc.asdict(self)
         mt = d.pop('material_thickness')
+        d.pop('ct0')
         d.update({f'thickness_{k}': v for k, v in mt.items()})
 
         return d
@@ -216,6 +231,10 @@ class _Condition:
 
         return d
 
+    def set_case(self, case: GRCase):
+        self.categorical.set_case(case)
+        self.numerical.set_case(case)
+
 
 class _ConditionGenerator:
 
@@ -235,13 +254,17 @@ class _ConditionGenerator:
         return {k: self.rng.choice(v) for k, v in option.items()}
 
     def generate_condition(self):
-        params = {k: self.rng.uniform(*v) for k, v in self.params.items()}
+        params = {
+            k: np.round(self.rng.uniform(*v), 4)
+            for k, v in self.params.items()
+        }
         thickness = {k: self.rng.uniform(*v) for k, v in self.thickness.items()}
-        # TODO 반올림
 
         fc = _FileCondition(**self._choice(self.option['file']))
-        nc = _NumericalCondition(**params, material_thickness=thickness)
-
+        nc = _NumericalCondition(
+            ct0=self.option['misc']['original_conditioning_temperature'],
+            material_thickness=thickness,
+            **params)
         cc = _CategoricalCondition(
             base_schedule=self.option['misc']['base_schedule'],
             schedule_dir=self.schedule_dir,
@@ -273,6 +296,8 @@ class GRRunner:
         for x in self._option['remove_objs'] or []:
             case.remove_obj(x)
 
+        case.idf.removeallidfobjects('Output:Meter')
+
         for ov in case._get_objs('Output:Variable'):
             if ov.Reporting_Frequency in ('hourly', 'daily'):
                 case.idf.removeidfobject(ov)
@@ -298,7 +323,7 @@ class GRRunner:
         return idfdir, outdir, csv_path
 
     def _idf_iterator(self, size: int):
-        with logger.catch(FileExistsError):
+        with logger.catch(FileExistsError, reraise=True):
             idfdir, outdir, csv_path = self._get_paths()
 
         option = dict(output_directory=outdir.as_posix(),
@@ -319,8 +344,7 @@ class GRRunner:
                 assert idf.exists()
                 case = self.case(idf=idf)
 
-                condition.numerical.set_case(case)
-                condition.categorical.set_case(case)
+                condition.set_case(case)
 
                 name = f'case{idx:06d}'
                 case.idf.saveas(outdir.joinpath(f'{name}.idf'))

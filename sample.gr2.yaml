@@ -15,6 +15,9 @@ case:
         shgc: [0.466, 0.719]
         lighting_level: [2.0, 10.0] # [W/m^2]
         occupancy: [0.0, 1.0] # [people/m^2]
+        equipment_power: [2.5, 51.75] # [W/m^2]
+        cooling_temperature: [24, 28]
+        heating_temperature: [18, 22]
         material_thickness: # [m]
             "XPS_0.0149": [0.0001, 0.1241]
             "EG Glass Wool_0.0228": [0.0001, 0.2512]
@@ -36,6 +39,9 @@ case:
         base_schedule: W9t18_H0t0
         idf_dir: "input/idf"
         schedule_dir: "input/schedule"
+        original_conditioning_temperature:
+            cooling: 28
+            heating: 18
 
 summary:
     - "REPORT:,EnergyConsumptionDistrictHeatingCoolingMonthly"
