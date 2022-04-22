@@ -42,8 +42,6 @@ class EnergyPlusCase:
         if self._template:
             self.set_output()
 
-        logger.debug('EP case init {}', {'idd': idd, 'idf': idf, 'epw': epw})
-
     @property
     def idf(self):
         return self._idf
@@ -93,6 +91,7 @@ class EnergyPlusCase:
         return objs
 
     def _get_obj_and_name(self, obj):
+        # TODO remove
         objs = self._get_objs(obj)
         names: tuple[str, ...] = tuple(x.Name for x in objs)
 
@@ -118,11 +117,10 @@ class EnergyPlusCase:
             [1/h]
         """
         ir = infiltration_rate / 3600.0  # [1/sec]
-        objs, names = self._get_obj_and_name('ZoneInfiltration:DesignFlowRate')
 
-        for obj, n in zip(objs, names):
-            volume = self.zone(n.rstrip(' Infiltration')).Volume
-            obj.Design_Flow_Rate = volume * ir
+        for zi in self._get_objs('ZoneInfiltration:DesignFlowRate'):
+            volume = self.zone(zi.Zone_or_ZoneList_Name).Volume
+            zi.Design_Flow_Rate = volume * ir
 
     def set_occupancy(self, density: float):
         """
@@ -131,11 +129,9 @@ class EnergyPlusCase:
         density : float
             [people/m^2]
         """
-        objs, names = self._get_obj_and_name('PEOPLE')
-
-        for obj, n in zip(objs, names):
-            area = self.zone(n.lstrip('People ')).Floor_Area
-            obj.Number_of_People = density * area
+        for people in self._get_objs('PEOPLE'):
+            area = self.zone(people.Zone_or_ZoneList_Name).Floor_Area
+            people.Number_of_People = density * area
 
     def set_equipment_power(self, power: float):
         """
@@ -144,14 +140,9 @@ class EnergyPlusCase:
         power : float
             [W/m^2]
         """
-        # FIXME 'Equipment \d' 형식이 아닐 수 있음
-        pattern = re.compile(r'\sEquipment\s\d+.*$')
-        objs, names = self._get_obj_and_name('ElectricEquipment')
-        names = tuple(pattern.sub('', x) for x in names)
-
-        for obj, n in zip(objs, names):
-            area = self.zone(n).Floor_Area
-            obj.Design_Level = power * area
+        for equipment in self._get_objs('ElectricEquipment'):
+            area = self.zone(equipment.Zone_or_ZoneList_Name).Floor_Area
+            equipment.Design_Level = power * area
 
     def set_lighting_level(self, power: float):
         """
@@ -160,33 +151,9 @@ class EnergyPlusCase:
         power : float
             [W/m^2]
         """
-        objs, names = self._get_obj_and_name('Lights')
-
-        for obj, n in zip(objs, names):
-            area = self.zone(n.rstrip(' General lighting')).Floor_Area
-            obj.Lighting_Level = area * power
-
-    def set_schedule(self, schedule: list, metabolic_schedule_id=None):
-        """
-        범용적으로 못 씀
-        현재 lighting/metabolic 두 스케줄만 있을 때
-        0시의 on/off 여부로 둘을 구분하고 있음
-        """
-        schedule_objs = self._idf.idfobjects['Schedule:Day:List']
-        index_first_value = [s.objls.index('Value_1') for s in schedule_objs]
-        if metabolic_schedule_id:
-            metabolic_schedule = [
-                x for x in schedule_objs if x.Name == str(metabolic_schedule_id)
-            ]
-        else:
-            metabolic_schedule = [
-                s for s, i in zip(schedule_objs, index_first_value)
-                if s.obj[i] > 0
-            ]
-
-        for s in metabolic_schedule:
-            first = s.objls.index('Value_1')
-            s.obj[first:first + len(schedule)] = schedule
+        for lights in self._get_objs('Lights'):
+            area = self.zone(lights.Zone_or_ZoneList_Name).Floor_Area
+            lights.Lighting_Level = area * power
 
     def set_material_thickness(self, material, thickness):
         target = [m for m in self.material if m.Name == material]
@@ -195,12 +162,39 @@ class EnergyPlusCase:
 
         target[0].Thickness = thickness
 
-    def set_window_u_value(self,
-                           u_value,
-                           obj='WindowMaterial:SimpleGlazingSystem'):
-        windows = self._idf.idfobjects[obj]
-        for w in windows:
-            w.UFactor = u_value
+    def set_simple_glazing_system(self,
+                                  u_value: Optional[float] = None,
+                                  shgc: Optional[float] = None,
+                                  transmittance: Optional[float] = None,
+                                  name: Optional[str] = None):
+        """
+        Set `WindowMaterial:SimpleGlazingSystem`
+
+        Parameters
+        ----------
+        u_value : Optional[float], optional
+            U-value [W/m2/K]
+        shgc : Optional[float], optional
+            Solar Heat Gain Coefficient
+        transmittance : Optional[float], optional
+            Visible Transmittance
+        name : Optional[str], optional
+            Object Name. `None`이면 모든 `WindowMaterial:SimpleGlazingSystem`를 변경.
+        """
+        windows = self._get_objs('WindowMaterial:SimpleGlazingSystem')
+
+        for window in windows:
+            if name and window.Name != name:
+                continue
+
+            if u_value is not None:
+                window.UFactor = u_value
+
+            if shgc is not None:
+                window.Solar_Heat_Gain_Coefficient = shgc
+
+            if transmittance is not None:
+                window.Visible_Transmittance = transmittance
 
     def set_year(self, u_value: float, materials: dict):
         """
@@ -213,7 +207,7 @@ class EnergyPlusCase:
         materials : dict
             {material[str]: thickness[float]}
         """
-        self.set_window_u_value(u_value=u_value)
+        self.set_simple_glazing_system(u_value=u_value)
 
         for material, thickness in materials.items():
             self.set_material_thickness(material=material, thickness=thickness)

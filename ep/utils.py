@@ -91,13 +91,16 @@ def read_str_df(txt, **kwargs) -> pd.DataFrame:
 def read_table_csv(path, table: str, melt=True) -> pd.DataFrame:
     blank = re.compile(r'^(\s|,)*$')
     lines = []
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
         for line in f:
             if line.startswith(table):
                 break
 
-        line = f.readline()  # 표 제목 뒤 빈 칸 넘김
-        assert blank.match(line)
+        for line in f:
+            if blank.match(line):
+                # 표 제목, (REPORT, FOR 등)과 숫자를
+                # 나누는 빈 칸이 나올 때까지 넘김
+                break
 
         for line in f:
             if blank.match(line):

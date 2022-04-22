@@ -151,4 +151,5 @@ input/
 output/
 multi_runs/
 .*.py
-cases.yaml
+*.yaml
+!sample*.yaml

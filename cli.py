@@ -1,8 +1,9 @@
 import click
 from loguru import logger
 
+from ep import gr as _gr
+from ep import gr2 as _gr2
 from ep.ep import save_as_eppy
-from ep.gr import GRRunner
 from ep.utils import set_logger
 
 _path = click.Path(exists=True, file_okay=True, dir_okay=False)
@@ -27,25 +28,40 @@ def reformat(output, idd, idf):
               default=True,
               show_default=True,
               help='`no-run`이면 디버그를 위해 Energy+ 시뮬레이션 실행하지 않음.')
+@click.option('--summarize', '-s', is_flag=True, help='시뮬레이션 결과 요약만 실행.')
 @click.argument('case', type=_path)
-def run(run, case):
-    logger.info('run: {}', run)
-    logger.info('case setting: "{}"', case)
+def gr(run, summarize, case):
+    logger.info('case setting: "{}" | run: {} | summarize: {}', case, run,
+                summarize)
 
-    runner = GRRunner(case=case)
-    runner.run(run=run)
+    runner = _gr.GRRunner(case=case)
 
-    if run:
+    if run and not summarize:
+        runner.run(run=run)
+
+    if run or summarize:
         runner.summarize()
 
 
 @cli.command()
+@click.option('--run/--no-run',
+              default=True,
+              show_default=True,
+              help='`no-run`이면 디버그를 위해 Energy+ 시뮬레이션 실행하지 않음.')
+@click.option('--summarize', '-s', is_flag=True, help='시뮬레이션 결과 요약만 실행.')
+@click.option('--size', default=1, show_default=True)
 @click.argument('case', type=_path)
-def summarize(case):
-    logger.info('case setting: "{}"', case)
+def gr2(run, summarize, size, case):
+    logger.info('case setting: "{}" | run: {} | summarize: {}', case, run,
+                summarize)
 
-    runner = GRRunner(case=case)
-    runner.summarize()
+    runner = _gr2.GRRunner(case=case)
+
+    if run and not summarize:
+        runner.run(size=size, run=run)
+
+    if run or summarize:
+        runner.summarize()
 
 
 if __name__ == '__main__':

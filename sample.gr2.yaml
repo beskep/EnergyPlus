@@ -1,0 +1,50 @@
+# path, idf는 이 파일이 있는 폴더 대비 경로도, 절대 경로도 지정 가능
+path:
+    idd: "idd/V8-3-0-Energy+.idd"
+    epw: "weather/Seoul-hourEPW.epw"
+    output_template: null
+    output: "output"
+
+# 케이스 설정
+case:
+    file:
+        area: [1904, 5703, 26565] # [m^2]
+        wwr: [20, 60, 80] # [%]
+        aspect_ratio: [1, 2, 3]
+    numerical:
+        shgc: [0.466, 0.719]
+        lighting_level: [2.0, 10.0] # [W/m^2]
+        occupancy: [0.0, 1.0] # [people/m^2]
+        material_thickness: # [m]
+            "XPS_0.0149": [0.0001, 0.1241]
+            "EG Glass Wool_0.0228": [0.0001, 0.2512]
+            "Urea  Foam_0.0109": [0.0001, 0.2080]
+    categorical:
+        north_axis: [0, 22.5, 45, 67.5, 90]
+        schedule:
+            - W0t24_H0t24
+            - W9t18_H0t0
+            - W9t18_H9t13
+            - W9t18_H9t18
+            - W9t20_H0t0
+            - W9t20_H9t13
+            - W9t20_H9t18
+            - W9t22_H0t0
+            - W9t22_H9t13
+            - W9t22_H9t18
+    misc:
+        base_schedule: W9t18_H0t0
+        idf_dir: "input/idf"
+        schedule_dir: "input/schedule"
+
+summary:
+    - "REPORT:,EnergyConsumptionDistrictHeatingCoolingMonthly"
+    - "REPORT:,EndUseEnergyConsumptionElectricityMonthly"
+
+# 이하 기타 설정
+EP:
+    processors: -1 # cpu 코어 개수
+    verbose: "q" # "v"로 설정하면 EnergyPlus 결과 콘솔에 출력, "q"면 출력하지 않음
+    readvars: true
+
+remove_objs: null
