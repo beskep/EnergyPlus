@@ -1,6 +1,7 @@
 from io import StringIO
 from logging import LogRecord
 from os import PathLike
+from pathlib import Path
 import re
 from typing import Optional, Union
 
@@ -117,3 +118,17 @@ def read_table_csv(path, table: str, melt=True) -> pd.DataFrame:
         # df = df.loc[df['value'] != 0, :]
 
     return df
+
+
+def clear_output(path, clear=True):
+    path = Path(path).resolve()
+    path.stat()
+
+    ptable = re.compile(r'^case((\d+)-table)?\.csv$')
+
+    for file in path.glob('*'):
+        if not (file.name.startswith('[summary]') or ptable.match(file.name)):
+            logger.info(file)
+
+            if clear:
+                file.unlink()

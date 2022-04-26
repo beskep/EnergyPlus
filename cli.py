@@ -3,8 +3,8 @@ from loguru import logger
 
 from ep import gr as _gr
 from ep import gr2 as _gr2
+from ep import utils
 from ep.ep import save_as_eppy
-from ep.utils import set_logger
 
 _path = click.Path(exists=True, file_okay=True, dir_okay=False)
 
@@ -12,7 +12,7 @@ _path = click.Path(exists=True, file_okay=True, dir_okay=False)
 @click.group()
 @click.option('--debug', '-d', is_flag=True)
 def cli(debug):
-    set_logger(level=(10 if debug else 20))
+    utils.set_logger(level=(10 if debug else 20))
 
 
 @cli.command()
@@ -21,6 +21,17 @@ def cli(debug):
 @click.argument('idf')
 def reformat(output, idd, idf):
     save_as_eppy(idd=idd, idf=idf, output=output)
+
+
+@cli.command()
+@click.option('--clear/--no-clear',
+              'flag_clear',
+              default=True,
+              show_default=True)
+@click.argument('path', default='output')
+def clear(flag_clear, path):
+    logger.debug('clear: {} | path: {}', flag_clear, path)
+    utils.clear_output(path=path, clear=flag_clear)
 
 
 @cli.command()

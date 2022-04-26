@@ -13,8 +13,8 @@ case:
         aspect_ratio: [1, 2, 3]
     numerical:
         shgc: [0.466, 0.719]
-        lighting_level: [2.0, 10.0] # [W/m^2]
-        occupancy: [0.0, 1.0] # [people/m^2]
+        lighting_level: [7.0, 19.0] # [W/m^2]
+        occupancy: [0.01, 0.207] # [people/m^2]
         equipment_power: [2.5, 51.75] # [W/m^2]
         cooling_temperature: [24, 28]
         heating_temperature: [18, 22]
@@ -42,10 +42,51 @@ case:
         original_conditioning_temperature:
             cooling: 28
             heating: 18
-
+        efficiency:
+            EHP:
+                cooling: [2.37, 5.0]
+                heating: [2.30, 5.0]
+            central:
+                cooling: [0.7, 1.5]
+                heating: [0.75, 0.95]
+        material:
+            "XPS_0.0149":
+                location: "wall"
+                conductivity: 0.034
+                other_thickness: [0.04, 0.1, 0.1, 0.013, 0.13]
+                other_conductivity: [1.0, 0.84, 0.51, 0.4, 1.0]
+            "EG Glass Wool_0.0228":
+                location: "roof"
+                conductivity: 0.04
+                other_thickness: [0.04, 0.01, 0.013, 0.18, 0.1]
+                other_conductivity: [1.0, 0.7, 0.25, 1.0, 1.0]
+            "Urea  Foam_0.0109":
+                location: "floor"
+                conductivity: 0.04
+                other_thickness: [0.04, 0.1, 0.07, 0.03, 0.17]
+                other_conductivity: [1.0, 1.13, 0.41, 0.14, 1.0]
+        north_axis:
+            0: "남"
+            22.5: "남남서"
+            45: "남서"
+            67.5: "서남서"
+            90: "서"
+        working_hours:
+            "0t0": 0
+            "0t24": 24
+            "9t13": 4
+            "9t18": 8
+            "9t20": 10
+            "9t22": 12
 summary:
-    - "REPORT:,EnergyConsumptionDistrictHeatingCoolingMonthly"
-    - "REPORT:,EndUseEnergyConsumptionElectricityMonthly"
+    table:
+        - "REPORT:,EnergyConsumptionDistrictHeatingCoolingMonthly"
+        - "REPORT:,EndUseEnergyConsumptionElectricityMonthly"
+    variable:
+        "INTERIORLIGHTS:ELECTRICITY [kWh]": "load_light"
+        "INTERIOREQUIPMENT:ELECTRICITY [kWh]": "load_equipment"
+        "DISTRICTCOOLING:FACILITY [kWh]": "load_cooling"
+        "DISTRICTHEATING:FACILITY [kWh]": "load_heating"
 
 # 이하 기타 설정
 EP:

@@ -2,6 +2,7 @@
 서기연 GR 사용량 분석
 변수 랜덤 선정
 """
+from calendar import month_name
 import csv
 import dataclasses as dc
 from pathlib import Path
@@ -258,7 +259,10 @@ class _ConditionGenerator:
             k: np.round(self.rng.uniform(*v), 4)
             for k, v in self.params.items()
         }
-        thickness = {k: self.rng.uniform(*v) for k, v in self.thickness.items()}
+        thickness = {
+            k: np.round(self.rng.uniform(*v), 4)
+            for k, v in self.thickness.items()
+        }
 
         fc = _FileCondition(**self._choice(self.option['file']))
         nc = _NumericalCondition(
@@ -274,6 +278,8 @@ class _ConditionGenerator:
 
 
 class GRRunner:
+    MN = list(month_name)
+    P_SCHEDULE = re.compile(r'^W(\d+t\d+)_H(\d+t\d+)')
 
     def __init__(self, case: StrPath, seed=None) -> None:
         case = Path(case)
@@ -284,6 +290,7 @@ class GRRunner:
 
         self._option = option
         self._paths = _paths(option=option, root=root)
+        self._vars: dict = self._option['summary']['variable']
 
         self._generator = _ConditionGenerator(self._option['case'], seed=seed)
 
@@ -379,29 +386,172 @@ class GRRunner:
 
             logger.info('저장 완료')
 
-    @staticmethod
-    def _read_table_csv(path: Path, table: str):
+    def _read_table_csv(self, path: Path, table: str):
         df = read_table_csv(path=path, table=table)
+
+        df = df.loc[[x in self._vars for x in df['variable']], :]
+        df['variable'] = [self._vars[x] for x in df['variable']]
+        df['month'] = [self.MN.index(x) for x in df['index']]
         df['case'] = path.name.rstrip('-table.csv')
 
-        return df
+        return df[['case', 'month', 'variable', 'value']]
 
-    def _summarize(self, table: str):
+    def _iter_tables(self, table):
         csvs = list(self._paths['output'].glob('*-table.csv'))
         if not csvs:
             raise FileNotFoundError('결과 파일이 없습니다.')
 
-        summ: pd.DataFrame = pd.concat(
-            (self._read_table_csv(x, table=table) for x in csvs))
+        for csv in track(csvs):
+            try:
+                df = self._read_table_csv(csv, table=table)
+            except ValueError:
+                logger.warning('결과 table 파일 오류: "{}"', csv)
+            else:
+                yield df
+
+    def _summarize_table(self, table: str):
+        csvs = list(self._paths['output'].glob('*-table.csv'))
+        if not csvs:
+            raise FileNotFoundError('결과 파일이 없습니다.')
+
+        df: pd.DataFrame = pd.concat(self._iter_tables(table))
 
         fname = table.replace(':', '').replace(',', '')
         path = self._paths['output'].joinpath(f'[summary] {fname}.csv')
-        summ.to_csv(path, encoding='utf-8-sig', index=False)
+        df.to_csv(path, encoding='utf-8-sig', index=False)
         logger.info('summary saved: "{}"', path)
 
+        return df
+
+    def _working_hours(self, schedule: str, schedule_time: dict):
+        m = self.P_SCHEDULE.match(schedule)
+
+        try:
+            assert m is not None
+            weekday = schedule_time[m.group(1)]
+            weekend = schedule_time[m.group(2)]
+        except (AssertionError, IndexError) as e:
+            raise ValueError(f'스케줄 형식 오류: "{schedule}"') from e
+
+        return weekday, weekend
+
+    def _u_value(self, material: dict, thickness: np.ndarray):
+        uinv = thickness / material['conductivity']
+        uinv_others = np.divide(material['other_thickness'],
+                                material['other_conductivity'])
+
+        return np.divide(1.0, uinv + np.sum(uinv_others))
+
+    def _summarize_post(self, df: pd.DataFrame):
+        # WWR
+        df['wwr'] /= 100.0
+
+        # round lighting level
+        df['lighting_level'] = np.round(df['lighting_level'], 2)
+
+        # working hours
+        schedule_time = self._option['case']['misc']['working_hours']
+        working_hours = np.array(
+            [self._working_hours(x, schedule_time) for x in df['schedule']])
+
+        df[['working_hours_weekday', 'working_hours_weekend']] = working_hours
+
+        # u value
+        for name, material in self._option['case']['misc']['material'].items():
+            thickness = df[f'thickness_{name}'].values.flatten()
+            loc = material['location']
+            df[f'u_{loc}'] = np.round(self._u_value(material, thickness), 4)
+
+        # north axis
+        nad = self._option['case']['misc']['north_axis']
+        df['north_axis_kor'] = [nad[x] for x in df['north_axis']]
+
+        # sort
+        col_index = ['case', 'month']
+        col_load = [x for x in df.columns if x.startswith('load_')]
+        cols = set(col_index + col_load)
+        col_input = sorted(
+            x for x in df.columns
+            if (x not in cols) and not x.startswith('thickness_'))
+
+        return df[col_index + col_load + col_input]
+
+    @staticmethod
+    def _summarize_efficiency(df: pd.DataFrame, efficiency: dict):
+        # 같은 케이스에 같은 효율 랜덤 생성
+        dfe = df[['case']].drop_duplicates()
+        dfe['efficiency_cooling'] = np.round(
+            np.random.uniform(*efficiency['cooling'], size=dfe.shape[0]), 2)
+        dfe['efficiency_heating'] = np.round(
+            np.random.uniform(*efficiency['heating'], size=dfe.shape[0]), 2)
+
+        df = df.merge(dfe, how='left', left_on='case', right_on='case')
+
+        df['load_cooling'] /= df['efficiency_cooling']
+        df['load_heating'] /= df['efficiency_heating']
+
+        return df
+
+    def _save_summary(self, df: pd.DataFrame, name: str):
+        outdir = self._paths['output']
+
+        # monthly
+        df.to_csv(outdir.joinpath(f'[summary] {name}_monthly.csv'),
+                  index=False,
+                  encoding='utf-8-sig')
+
+        cols_load = [x for x in df.columns if x.startswith('load_')]
+        df_input = df.loc[[x == 1 for x in df['month']],
+                          [not x.startswith('load_') for x in df.columns]]
+        df_input = df_input.drop(columns='month').set_index('case')
+
+        # annual
+        df_annual = df[['case'] + cols_load].groupby('case').sum()
+        df_annual = df_annual.join(df_input)
+        df_annual.to_csv(outdir.joinpath(f'[summary] {name}_annual.csv'),
+                         encoding='utf-8-sig')
+
+        # monthly (pivot)
+        df_load = pd.melt(df[['case', 'month'] + cols_load],
+                          id_vars=['case', 'month'])
+        df_load['variable'] = [
+            f'{v}_{m:02d}'.replace('load_', '')
+            for v, m in zip(df_load['variable'], df_load['month'])
+        ]
+        dfp = pd.pivot(df_load.drop(columns='month'),
+                       index='case',
+                       columns='variable',
+                       values='value')
+        dfp = dfp.join(df_input)
+        dfp.to_csv(outdir.joinpath(f'[summary] {name}_monthly_pivot.csv'),
+                   encoding='utf-8-sig')
+
     def summarize(self):
-        for table in track(self._option['summary'],
-                           description='Summarizing...'):
-            self._summarize(table)
+        dfs = []
+        for table in self._option['summary']['table']:
+            logger.info('summarize "{}"', table)
+            dfs.append(self._summarize_table(table))
+
+        input_vars = pd.read_csv(self._paths['output'].joinpath('case.csv'))
+        input_vars = input_vars.drop(columns='index').rename(
+            columns={'name': 'case'})
+
+        df: pd.DataFrame = pd.concat(dfs)
+        dfp = pd.pivot(df,
+                       index=['case', 'month'],
+                       columns='variable',
+                       values='value').reset_index()
+        dfm = dfp.merge(input_vars, how='left', left_on='case', right_on='case')
+
+        dfm = self._summarize_post(dfm)
+        self._save_summary(dfm, name='original')
+
+        # EHP, 중앙식
+        ef = self._option['case']['misc']['efficiency']
+        self._save_summary(self._summarize_efficiency(dfm.copy(), ef['EHP']),
+                           name='EHP')
+        self._save_summary(self._summarize_efficiency(dfm.copy(),
+                                                      ef['central']),
+                           name='central')
 
         logger.info('Summarizing 완료')
