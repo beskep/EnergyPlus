@@ -18,6 +18,7 @@ case:
         equipment_power: [2.5, 51.75] # [W/m^2]
         cooling_temperature: [24, 28]
         heating_temperature: [18, 22]
+        window_uvalue: [1.5, 3.489] # [W/(m^2 K)]
         material_thickness: # [m]
             "XPS_0.0149": [0.0001, 0.1241]
             "EG Glass Wool_0.0228": [0.0001, 0.2512]

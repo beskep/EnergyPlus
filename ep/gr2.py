@@ -171,6 +171,7 @@ class _NumericalCondition:
     equipment_power: float
     cooling_temperature: float
     heating_temperature: float
+    window_uvalue: float
     material_thickness: dict
     ct0: dict  # original conditioning temperature
 
@@ -179,7 +180,8 @@ class _NumericalCondition:
         self.heating_temperature = np.round(self.heating_temperature, 1)
 
     def set_case(self, case: GRCase):
-        case.set_simple_glazing_system(shgc=self.shgc)
+        case.set_simple_glazing_system(u_value=self.window_uvalue,
+                                       shgc=self.shgc)
         case.set_occupancy(self.occupancy)
         case.set_lighting_level(self.lighting_level)
         case.set_equipment_power(self.equipment_power)
