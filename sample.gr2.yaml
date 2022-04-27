@@ -90,9 +90,15 @@ summary:
         "DISTRICTHEATING:FACILITY [kWh]": "load_heating"
 
 # 이하 기타 설정
-EP:
+simulation:
     processors: -1 # cpu 코어 개수
     verbose: "q" # "v"로 설정하면 EnergyPlus 결과 콘솔에 출력, "q"면 출력하지 않음
     readvars: true
+
+    save_idf: false
+    clear: true # 시뮬레이션 이후 결과 파일 정리
+    preserve: # 삭제하지 않고 남길 파일 suffix 목록
+        - ".idf"
+        - "-table.csv"
 
 remove_objs: null

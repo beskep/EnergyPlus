@@ -9,13 +9,13 @@ from pathlib import Path
 import re
 
 from eppy.modeleditor import IDF
-from eppy.runner.run_functions import runIDFs
 from loguru import logger
 import numpy as np
 import pandas as pd
 import yaml
 
 from .ep import EnergyPlusCase
+from .run import run_idfs
 from .utils import read_table_csv
 from .utils import StrPath
 from .utils import track
@@ -331,14 +331,16 @@ class GRRunner:
 
         return idfdir, outdir, csv_path
 
-    def _idf_iterator(self, size: int):
+    def _idf_iterator(self, size: int, save_idf=True):
         with logger.catch(FileExistsError, reraise=True):
             idfdir, outdir, csv_path = self._get_paths()
 
         option = dict(output_directory=outdir.as_posix(),
                       output_suffix='D',
-                      verbose=self._option['EP']['verbose'],
-                      readvars=self._option['EP']['readvars'])
+                      verbose=self._option['simulation']['verbose'],
+                      readvars=self._option['simulation']['readvars'],
+                      clear=self._option['simulation'].get('clear', True),
+                      preserve=self._option['simulation'].get('preserve', []))
 
         with csv_path.open('w', encoding='utf-8', newline='') as cf:
             condition = self._generator.generate_condition()
@@ -349,14 +351,14 @@ class GRRunner:
             for idx in track(range(size)):
                 condition = self._generator.generate_condition()
 
-                idf = idfdir.joinpath(f'{condition.file.filename()}.idf')
-                assert idf.exists()
-                case = self.case(idf=idf)
+                case = self.case(
+                    idf=idfdir.joinpath(f'{condition.file.filename()}.idf'))
 
                 condition.set_case(case)
 
                 name = f'case{idx:06d}'
-                case.idf.saveas(outdir.joinpath(f'{name}.idf'))
+                if save_idf:
+                    case.idf.saveas(outdir.joinpath(f'{name}.idf'))
 
                 opt = option.copy()
                 opt['output_prefix'] = name
@@ -371,19 +373,24 @@ class GRRunner:
                 yield case.idf, opt
 
     def run(self, size: int, run=True):
+        save_idf = self._option['simulation']['save_idf']
+        if not self._option['simulation'].get('preserve', False):
+            logger.warning('저장할 결과 파일이 지정되지 않았습니다. 모든 결과 파일을 저장합니다.')
+
         if run:
-            processors = int(self._option['EP']['processors'])
+            processors = int(self._option['simulation']['processors'])
 
             logger.info('시뮬레이션 시작. "시뮬레이션 완료"가 표시될 때까지 종료하지 말아주세요.')
             logger.info('processors: {}', processors)
 
-            runIDFs(self._idf_iterator(size=size), processors=processors)
+            run_idfs(self._idf_iterator(size=size, save_idf=save_idf),
+                     processors=processors)
 
             logger.info('시뮬레이션 완료')
         else:
             logger.info('변경된 idf 파일을 저장하고 시뮬레이션은 시행하지 않습니다.')
 
-            for _ in self._idf_iterator(size=size):
+            for _ in self._idf_iterator(size=size, save_idf=save_idf):
                 pass
 
             logger.info('저장 완료')
